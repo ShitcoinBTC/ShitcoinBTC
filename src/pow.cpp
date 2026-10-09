@@ -53,6 +53,19 @@ static const uint32_t SHIT_DIFF_MAX_TRANSITION = 8; // sanity bound for Permitte
 // controller resumes from there.
 static const int64_t SHIT_DIFF_FORK2_HEIGHT = 30950;
 static const uint32_t SHIT_DIFF_FORK2_REBASE_BITS = 0x1d63ffff; // ~0.01 difficulty, CPU-mineable
+// Shitcoin difficulty floor fork #3 (2026-10-03, Jodie's idea).
+// Fixes the boom/bust oscillation: one bursty miner making ~every block plus
+// the aggressive per-block controller (up to ~6.5x target move per block)
+// whipsaws difficulty — long stall, collapse, flood of fast blocks, spike,
+// stall again. From SHIT_DIFF_FORK3_HEIGHT on, the target may never exceed
+// SHIT_DIFF_FLOOR_TARGET (difficulty never below ~0.01, CPU-mineable): the
+// controller still eases during quiet spells, but never into the collapse
+// that triggers the flood/spike. No rebase at the fork height — just clamp
+// from here on; if the current target is already easier than the floor it is
+// left alone until the controller hardens it back up.
+// CONSENSUS: all nodes and all miners must upgrade before this height.
+static const int64_t SHIT_DIFF_FORK3_HEIGHT = 48460;
+static const uint32_t SHIT_DIFF_FLOOR_BITS = 0x1d63ffff; // ~0.01 difficulty, CPU-mineable
 // Max single-block target move: ((K+1)/K)^(3T). T=12 -> ~2.1x, T=30 -> ~6.4x,
 // both inside SHIT_DIFF_MAX_TRANSITION.
 
@@ -99,6 +112,13 @@ static unsigned int CalculatePerBlockWorkRequired(const CBlockIndex* pindexLast,
 
     const arith_uint256 bnPowLimit = UintToArith256(params.powLimit);
     if (bnNew > bnPowLimit) bnNew = bnPowLimit;
+    // Fork #3: difficulty floor. Never let the target go easier than the
+    // CPU-mineable floor — this is what breaks the collapse/flood/spike cycle.
+    if (nextHeight >= SHIT_DIFF_FORK3_HEIGHT) {
+        arith_uint256 bnFloorTarget;
+        bnFloorTarget.SetCompact(SHIT_DIFF_FLOOR_BITS);
+        if (bnNew > bnFloorTarget) bnNew = bnFloorTarget;
+    }
     if (bnNew == 0) bnNew = arith_uint256(1); // unreachable; never strand the chain
     return bnNew.GetCompact();
 }
