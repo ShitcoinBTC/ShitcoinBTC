@@ -181,8 +181,8 @@ jobs:
             <key>CFBundleExecutable</key><string>Shitcoin-Qt</string>
             <key>CFBundleIdentifier</key><string>xyz.shitcoinbtc.shitcoin-qt</string>
             <key>CFBundleName</key><string>Shitcoin-Qt</string>
-            <key>CFBundleVersion</key><string>1.0.0</string>
-            <key>CFBundleShortVersionString</key><string>1.0.0</string>
+            <key>CFBundleVersion</key><string>1.0.1</string>
+            <key>CFBundleShortVersionString</key><string>1.0.1</string>
             <key>CFBundlePackageType</key><string>APPL</string>
             <key>NSHighResolutionCapable</key><true/>
           </dict>
@@ -191,8 +191,8 @@ jobs:
           "$QT_BIN/macdeployqt" "$APP" -verbose=1
           echo "=== bundled libs ==="
           find "$APP/Contents/Frameworks" -name '*.dylib' | head -20
-          cd dist && rm -f syscoin-qt && zip -ry "shitcoin-qt-v1.0.0-macos.zip" "Shitcoin-Qt.app"
-          ls -la dist/
+          cd dist && rm -f syscoin-qt && zip -ry "shitcoin-qt-v1.0.1-macos.zip" "Shitcoin-Qt.app"
+          ls -la
 
       - name: Upload Qt wallet
         uses: actions/upload-artifact@v4
