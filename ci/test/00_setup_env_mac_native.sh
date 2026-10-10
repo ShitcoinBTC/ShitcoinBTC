@@ -6,7 +6,7 @@
 
 export LC_ALL=C.UTF-8
 
-export HOST=x86_64-apple-darwin
+export HOST=aarch64-apple-darwin
 export PIP_PACKAGES="zmq"
 export GOAL="install"
 export SYSCOIN_CONFIG="--with-gui --with-miniupnpc --with-natpmp --enable-reduce-exports"
