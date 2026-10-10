@@ -3,6 +3,7 @@
   "version-string": "1",
   "dependencies": [
     "berkeleydb",
+    "openssl",
     "boost-multi-index",
     "boost-process",
     "boost-signals2",

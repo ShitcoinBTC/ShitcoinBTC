@@ -10,6 +10,7 @@
 #include <script/script.h>
 #include <uint256.h>
 
+#include <cassert>
 #include <cstdint>
 #include <vector>
 
