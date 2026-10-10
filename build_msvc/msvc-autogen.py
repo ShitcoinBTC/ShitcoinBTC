@@ -22,6 +22,7 @@ libs = [
     'libsyscoin_zmq',
     'bench_syscoin',
     'libtest_util',
+    'libnevm',
 ]
 
 ignore_list = [
