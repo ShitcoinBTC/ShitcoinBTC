@@ -138,7 +138,7 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Fix Visual Studio installation
         # Avoid toolset ambiguity that MSVC can't handle.
@@ -318,12 +318,15 @@ jobs:
           key: ${{ github.job }}-ccache-${{ github.run_id }}
 
       - name: Run unit tests
-        run: src\test_syscoin.exe -l test_suite
+        run: build_msvc\x64\Release\test_syscoin.exe -l test_suite
 
       - name: Run benchmarks
-        run: src\bench_syscoin.exe -sanity-check
+        run: build_msvc\x64\Release\bench_syscoin.exe -sanity-check
 
       - name: Run util tests
+        env:
+          SYSCOINUTIL: build_msvc\x64\Release\syscoin-util.exe
+          SYSCOINTX: build_msvc\x64\Release\syscoin-tx.exe
         run: py -3 test\util\test_runner.py
 
       - name: Run rpcauth test
@@ -336,4 +339,9 @@ jobs:
         # not yet been determined.
         # Discussed in https://github.com/bitcoin/bitcoin/pull/28509
         if: github.event_name != 'pull_request'
+        env:
+          SYSCOIND: build_msvc\x64\Release\syscoind.exe
+          SYSCOINCLI: build_msvc\x64\Release\syscoin-cli.exe
+          SYSCOINUTIL: build_msvc\x64\Release\syscoin-util.exe
+          SYSCOINWALLET: build_msvc\x64\Release\syscoin-wallet.exe
         run: py -3 test\functional\test_runner.py --jobs $env:NUMBER_OF_PROCESSORS --ci --quiet --tmpdirprefix=$env:RUNNER_TEMP --combinedlogslen=99999999 --timeout-factor=$env:TEST_RUNNER_TIMEOUT_FACTOR --extended
