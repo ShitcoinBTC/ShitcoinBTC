@@ -36,8 +36,8 @@ SplashScreen::SplashScreen(const NetworkStyle* networkStyle)
     int titleVersionVSpace      = 17;
     int titleCopyrightVSpace    = 40;
 
-    float fontFactor            = 1.0;
-    float devicePixelRatio      = 1.0;
+    float fontFactor            = 1.0f;
+    float devicePixelRatio      = 1.0f;
     devicePixelRatio = static_cast<QGuiApplication*>(QCoreApplication::instance())->devicePixelRatio();
 
     // define text to place

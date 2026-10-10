@@ -363,8 +363,8 @@ double TxConfirmStats::EstimateMedianVal(int confTarget, double sufficientTxVal,
         failBucket.leftMempool = failNum;
     }
 
-    float passed_within_target_perc = 0.0;
-    float failed_within_target_perc = 0.0;
+    float passed_within_target_perc = 0.0f;
+    float failed_within_target_perc = 0.0f;
     if ((passBucket.totalConfirmed + passBucket.inMempool + passBucket.leftMempool)) {
         passed_within_target_perc = 100 * passBucket.withinTarget / (passBucket.totalConfirmed + passBucket.inMempool + passBucket.leftMempool);
     }
