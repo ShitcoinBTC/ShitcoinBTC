@@ -60,7 +60,10 @@ bool BLS::Init()
     SetSecureAllocator(malloc, free);
 #endif
 
-#if MULTI != RELIC_NONE
+/* MULTI may be defined-but-empty ("no multithreading support" is a valid relic
+ * configuration); a bare `#if MULTI != ...` is then a preprocessor hard error.
+ * The `+ 0` normalizes an empty MULTI to 0 without changing any defined value. */
+#if defined(MULTI) && (MULTI + 0 != RELIC_NONE)
     core_set_thread_initializer(relic_core_initializer, nullptr);
 #else
     relic_core_initializer(nullptr);
