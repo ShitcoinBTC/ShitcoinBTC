@@ -38,6 +38,8 @@ Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "libsyscoin_wallet_tool", "l
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "libsecp256k1", "libsecp256k1\libsecp256k1.vcxproj", "{BB493552-3B8C-4A8C-BF69-A6E7A51D2EA6}"
 EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "dashbls", "dashbls\dashbls.vcxproj", "{D4C350B0-1C5F-4226-B17D-1F756A458400}"
+EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "libleveldb", "libleveldb\libleveldb.vcxproj", "{18430FEF-6B61-4C53-B396-718E02850F1B}"
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "libsyscoin_qt", "libsyscoin_qt\libsyscoin_qt.vcxproj", "{2B4ABFF8-D1FD-4845-88C9-1F3C0A6512BF}"
@@ -130,6 +132,10 @@ Global
         {BB493552-3B8C-4A8C-BF69-A6E7A51D2EA6}.Debug|x64.Build.0 = Debug|x64
         {BB493552-3B8C-4A8C-BF69-A6E7A51D2EA6}.Release|x64.ActiveCfg = Release|x64
         {BB493552-3B8C-4A8C-BF69-A6E7A51D2EA6}.Release|x64.Build.0 = Release|x64
+        {D4C350B0-1C5F-4226-B17D-1F756A458400}.Debug|x64.ActiveCfg = Debug|x64
+        {D4C350B0-1C5F-4226-B17D-1F756A458400}.Debug|x64.Build.0 = Debug|x64
+        {D4C350B0-1C5F-4226-B17D-1F756A458400}.Release|x64.ActiveCfg = Release|x64
+        {D4C350B0-1C5F-4226-B17D-1F756A458400}.Release|x64.Build.0 = Release|x64
         {18430FEF-6B61-4C53-B396-718E02850F1B}.Debug|x64.ActiveCfg = Debug|x64
         {18430FEF-6B61-4C53-B396-718E02850F1B}.Debug|x64.Build.0 = Debug|x64
         {18430FEF-6B61-4C53-B396-718E02850F1B}.Release|x64.ActiveCfg = Release|x64
