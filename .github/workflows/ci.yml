@@ -70,10 +70,12 @@ jobs:
           git rebase --exec "echo Running test-one-commit on \$( git log -1 ) && ./autogen.sh && CC=clang CXX=clang++ ./configure && make clean && make -j $(nproc) check && ./test/functional/test_runner.py -j $(( $(nproc) * 2 ))" ${{ env.TEST_BASE }}
 
   macos-native-x86_64:
-    name: 'macOS 13 native, x86_64, no depends, sqlite only, gui'
+    name: 'macOS 15 native, x86_64, no depends, sqlite only, gui'
     # Use latest image, but hardcode version to avoid silent upgrades (and breaks).
     # See: https://github.com/actions/runner-images#available-images.
-    runs-on: macos-13  # Use M1 once available https://github.com/github/roadmap/issues/528
+    # macos-13 was retired by GitHub on 2025-12-04 (job queued ~24h then died).
+    # macos-15-intel is the last Intel (x86_64) image, supported until fall 2027.
+    runs-on: macos-15-intel
 
     # No need to run on the read-only mirror, unless it is a PR.
     if: github.repository != 'syscoin-core/gui' || github.event_name == 'pull_request'
