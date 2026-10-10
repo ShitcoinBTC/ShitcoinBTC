@@ -796,8 +796,21 @@ static bool CheckVaultYield(const CTransaction& tx, TxValidationState& state, co
 
         CAmount nEntitlement{0};
         if (nTier > 0 && consensusParams.nVaultReserveTotal != 0) {
-            const __int128 nMult = consensusParams.nVaultTierMult[nTier - 1];
+            const int64_t nMult = consensusParams.nVaultTierMult[nTier - 1];
+#ifdef __SIZEOF_INT128__
+            // Fast path (GCC/Clang): full 128-bit precision multiply.
             nEntitlement = (CAmount)(((__int128)nPrincipal * nMult) / 100000000 - nPrincipal);
+#else
+            // MSVC has no __int128: decompose so every intermediate fits in
+            // 64 bits. nPrincipal is MoneyRange-checked (0 <= P <= 2.1e18)
+            // and nMult <= 201135718, so with D = 100000000:
+            //   floor(P*M/D) = (P/D)*M + floor(((P%D)*M)/D)
+            // (P/D)*M <= 4.3e18 < 2^63 and (P%D)*M <= 2.1e16 < 2^63:
+            // exact, no precision loss versus the 128-bit path.
+            const CAmount nQuot = nPrincipal / 100000000;
+            const CAmount nRem = nPrincipal % 100000000;
+            nEntitlement = (nQuot * nMult) + ((nRem * nMult) / 100000000) - nPrincipal;
+#endif
             if (nEntitlement < 0 || !MoneyRange(nEntitlement)) {
                 return state.Invalid(TxValidationResult::TX_CONSENSUS, "bad-vault-entitlement-range",
                                      "vault yield entitlement out of range");
