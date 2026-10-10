@@ -168,7 +168,12 @@ static SOCKET ConnectWithDeadline(const addrinfo* ai, TimePoint deadline, std::s
             continue;
         }
         int rc = connect(fd, p->ai_addr, (int)p->ai_addrlen);
-        if (rc < 0 && WSAGetLastError() != WSAEINPROGRESS) {
+        // Windows reports WSAEWOULDBLOCK (not WSAEINPROGRESS) for a non-blocking
+        // connect() that is still in progress; accept both. On POSIX
+        // WSAEWOULDBLOCK is EWOULDBLOCK, which connect() never returns, so the
+        // non-Windows behavior is unchanged.
+        const int conn_err = WSAGetLastError();
+        if (rc < 0 && conn_err != WSAEINPROGRESS && conn_err != WSAEWOULDBLOCK) {
             last_err = WSAGetLastError();
             VaultCloseSocket(fd);
             continue;
@@ -577,16 +582,35 @@ static int VaultTierForElapsed(int64_t spendMTP, int64_t lockMTP)
 }
 
 //! Yield entitlement in sats: principal * (mult[tier-1] - 1e8) / 1e8, floored.
-//! Integer-only (__int128 multiply, never float), identical to the consensus formula.
+//! Integer-only (128-bit multiply on GCC/Clang, exact 64-bit decomposition on
+//! MSVC, never float), identical to the consensus formula.
 //! Tier 0 (below shortest lock): no yield.
 static CAmount VaultEntitlement(CAmount principal, int64_t spendMTP, int64_t lockMTP)
 {
     const int tier = VaultTierForElapsed(spendMTP, lockMTP);
     if (tier <= 0) return 0;
     const int64_t mult = Params().GetConsensus().nVaultTierMult[tier - 1];
-    const __int128 entitlement = (__int128)principal * (mult - VAULT_MULT_SCALE) / VAULT_MULT_SCALE;
+    const int64_t multDelta = mult - VAULT_MULT_SCALE;
+    assert(multDelta > 0);
+#ifdef __SIZEOF_INT128__
+    // Fast path (GCC/Clang): full 128-bit precision multiply.
+    const __int128 entitlement = (__int128)principal * multDelta / VAULT_MULT_SCALE;
     assert(entitlement >= 0);
     return (CAmount)entitlement;
+#else
+    // MSVC has no __int128: decompose so every intermediate fits in 64 bits.
+    // principal is MoneyRange-checked (0 <= P <= 2.1e18) and
+    // multDelta = nVaultTierMult[tier-1] - 1e8 <= 101135718, so with D = 1e8:
+    //   floor(P*(M-D)/D) = (P/D)*(M-D) + floor(((P%D)*(M-D))/D)
+    // (P/D)*(M-D) <= 2.2e18 < 2^63 and ((P%D)*(M-D)) <= 1.1e16 < 2^63:
+    // exact, no precision loss versus the 128-bit path. Same decomposition as
+    // CheckVaultYield in validation.cpp.
+    const CAmount nQuot = principal / VAULT_MULT_SCALE;
+    const CAmount nRem = principal % VAULT_MULT_SCALE;
+    const CAmount entitlement = (nQuot * multDelta) + ((nRem * multDelta) / VAULT_MULT_SCALE);
+    assert(entitlement >= 0);
+    return entitlement;
+#endif
 }
 
 //! Parse a vault lock duration label ("30d", "6m", "1y", "5y") to seconds.
