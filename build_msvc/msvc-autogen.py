@@ -13,6 +13,7 @@ DEFAULT_PLATFORM_TOOLSET = R'v143'
 
 libs = [
     'libsyscoin_cli',
+    'libsyscoin_consensus',
     'libsyscoin_common',
     'libsyscoin_crypto',
     'libsyscoin_node',

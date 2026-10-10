@@ -100,7 +100,7 @@ jobs:
 
       - name: Cache Guix and depends
         id: guix-cache-restore
-        uses: actions/cache@v3
+        uses: actions/cache@v4
         with:
           path: |
             ${{ github.workspace }}/.cache

@@ -8,19 +8,51 @@
     <ConfigurationType>StaticLibrary</ConfigurationType>
   </PropertyGroup>
   <ItemGroup>
-    <ClCompile Include="..\..\src\arith_uint256.cpp" />
-    <ClCompile Include="..\..\src\consensus\merkle.cpp" />
-    <ClCompile Include="..\..\src\consensus\tx_check.cpp" />
-    <ClCompile Include="..\..\src\hash.cpp" />
-    <ClCompile Include="..\..\src\primitives\block.cpp" />
-    <ClCompile Include="..\..\src\primitives\transaction.cpp" />
-    <ClCompile Include="..\..\src\pubkey.cpp" />
-    <ClCompile Include="..\..\src\script\syscoinconsensus.cpp" />
-    <ClCompile Include="..\..\src\script\interpreter.cpp" />
-    <ClCompile Include="..\..\src\script\script.cpp" />
-    <ClCompile Include="..\..\src\script\script_error.cpp" />
-    <ClCompile Include="..\..\src\uint256.cpp" />
-    <ClCompile Include="..\..\src\util\strencodings.cpp" />
+    <ClCompile Include="..\..\src\arith_uint256.cpp">
+      <ObjectFileName>$(IntDir)arith_uint256.obj</ObjectFileName>
+    </ClCompile>
+    <ClCompile Include="..\..\src\bls\bls.cpp">
+      <ObjectFileName>$(IntDir)bls_bls.obj</ObjectFileName>
+    </ClCompile>
+    <ClCompile Include="..\..\src\consensus\merkle.cpp">
+      <ObjectFileName>$(IntDir)consensus_merkle.obj</ObjectFileName>
+    </ClCompile>
+    <ClCompile Include="..\..\src\consensus\tx_check.cpp">
+      <ObjectFileName>$(IntDir)consensus_tx_check.obj</ObjectFileName>
+    </ClCompile>
+    <ClCompile Include="..\..\src\hash.cpp">
+      <ObjectFileName>$(IntDir)hash.obj</ObjectFileName>
+    </ClCompile>
+    <ClCompile Include="..\..\src\primitives\block.cpp">
+      <ObjectFileName>$(IntDir)primitives_block.obj</ObjectFileName>
+    </ClCompile>
+    <ClCompile Include="..\..\src\primitives\pureheader.cpp">
+      <ObjectFileName>$(IntDir)primitives_pureheader.obj</ObjectFileName>
+    </ClCompile>
+    <ClCompile Include="..\..\src\primitives\transaction.cpp">
+      <ObjectFileName>$(IntDir)primitives_transaction.obj</ObjectFileName>
+    </ClCompile>
+    <ClCompile Include="..\..\src\pubkey.cpp">
+      <ObjectFileName>$(IntDir)pubkey.obj</ObjectFileName>
+    </ClCompile>
+    <ClCompile Include="..\..\src\script\syscoinconsensus.cpp">
+      <ObjectFileName>$(IntDir)script_syscoinconsensus.obj</ObjectFileName>
+    </ClCompile>
+    <ClCompile Include="..\..\src\script\interpreter.cpp">
+      <ObjectFileName>$(IntDir)script_interpreter.obj</ObjectFileName>
+    </ClCompile>
+    <ClCompile Include="..\..\src\script\script.cpp">
+      <ObjectFileName>$(IntDir)script_script.obj</ObjectFileName>
+    </ClCompile>
+    <ClCompile Include="..\..\src\script\script_error.cpp">
+      <ObjectFileName>$(IntDir)script_script_error.obj</ObjectFileName>
+    </ClCompile>
+    <ClCompile Include="..\..\src\uint256.cpp">
+      <ObjectFileName>$(IntDir)uint256.obj</ObjectFileName>
+    </ClCompile>
+    <ClCompile Include="..\..\src\util\strencodings.cpp">
+      <ObjectFileName>$(IntDir)util_strencodings.obj</ObjectFileName>
+    </ClCompile>
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

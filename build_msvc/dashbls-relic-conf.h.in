@@ -39,7 +39,7 @@
  * src/dashbls/depends/relic/include/relic_conf.h.in before invoking CMake
  * (kept in build_msvc so running autogen.sh does not dirty a tracked file),
  * which then generates
- * src/dashbls/build/depends/relic/include/relic_conf.h.
+ * build_msvc/dashbls-build/depends/relic/include/relic_conf.h.
  *
  * The values substituted for the Windows/MSVC flow come from
  * src/dashbls/CMakeLists.txt (WSIZE=64, ARITH=easy, TIMER=ANSI, MULTI="",
