@@ -166,3 +166,6 @@ dist/
 
 # Local build stub, never commit
 bin/linux/x86_64/sysgeth
+
+# dashbls rust-binding byproduct (written by cmake configure, deleted by build-dashbls.ps1)
+/src/dashbls/build/

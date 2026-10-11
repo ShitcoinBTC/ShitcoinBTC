@@ -1,0 +1,753 @@
+/*
+ * RELIC is an Efficient LIbrary for Cryptography
+ * Copyright (c) 2009 RELIC Authors
+ *
+ * This file is part of RELIC. RELIC is legal property of its developers,
+ * whose names are not listed here. Please refer to the COPYRIGHT file
+ * for contact information.
+ *
+ * RELIC is free software; you can redistribute it and/or modify it under the
+ * terms of the version 2.1 (or later) of the GNU Lesser General Public License
+ * as published by the Free Software Foundation; or version 2.0 of the Apache
+ * License as published by the Apache Software Foundation. See the LICENSE files
+ * for more details.
+ *
+ * RELIC is distributed in the hope that it will be useful, but WITHOUT ANY
+ * WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR
+ * A PARTICULAR PURPOSE. See the LICENSE files for more details.
+ *
+ * You should have received a copy of the GNU Lesser General Public or the
+ * Apache License along with RELIC. If not, see <https://www.gnu.org/licenses/>
+ * or <https://www.apache.org/licenses/>.
+ */
+
+/**
+ * @file
+ *
+ * Project configuration for the native MSVC (Visual Studio 2022, x64) build
+ * of the dashbls dependency.
+ *
+ * This is a CMake template processed by Relic's own CMakeLists.txt
+ * (src/dashbls/depends/relic/CMakeLists.txt) via
+ *   configure_file(include/relic_conf.h.in
+ *                  ${CMAKE_CURRENT_BINARY_DIR}/include/relic_conf.h @ONLY)
+ * Placeholders of the form @VAR@ are substituted from the CMake cache, and
+ * cmakedefine directives resolve according to the CMake boolean value
+ * (defined when true, commented-out undef when false or empty).
+ *
+ * build_msvc/build-dashbls.ps1 copies THIS file to
+ * src/dashbls/depends/relic/include/relic_conf.h.in before invoking CMake
+ * (kept in build_msvc so running autogen.sh does not dirty a tracked file),
+ * which then generates
+ * build_msvc/dashbls-build/depends/relic/include/relic_conf.h.
+ *
+ * The values substituted for the Windows/MSVC flow come from
+ * src/dashbls/CMakeLists.txt (WSIZE=64, ARITH=easy, TIMER=ANSI, MULTI="",
+ * SEED=WCGR, FP_QNRES=on, ALLOC=AUTO, FP_PRIME=381,
+ * FP_METHD="INTEG;INTEG;INTEG;MONTY;LOWER;SLIDE",
+ * FPX_METHD="INTEG;INTEG;LAZYR", PP_METHD="LAZYR;OATEP", PP_EXT=LAZYR,
+ * CHECK=off, VERBS=off, QUIET=on) plus depends/relic/cmake/*.cmake defaults,
+ * and match the BLS12-381 configuration used by the autotools build
+ * (src/dashbls/configure.ac). The numeric constants below are identical to
+ * the AC_DEFINE values in configure.ac.
+ *
+ * NOTES for the MSVC flow (verified against depends/relic sources):
+ *  - MULTI is intentionally empty: build-dashbls.ps1 passes -DMULTI=, so the
+ *    directive below leaves MULTI undefined. This avoids <pthread.h>
+ *    (absent on MSVC) and OpenMP threadprivate. src/dashbls/src/bls.cpp:63
+ *    then takes the single-context path via "#if MULTI != RELIC_NONE"
+ *    (empty MULTI evaluates false); relic falls back to one global context.
+ *  - TIMER=ANSI: relic_arch_x64.c implements arch_cycles() with GCC inline
+ *    assembly, which MSVC cannot compile. With TIMER=ANSI the cycle-counter
+ *    code is compiled out (bench_before/bench_after use clock()); the
+ *    dangling arch_cycles() declaration is never referenced (relic_bench.c
+ *    is only built when BENCH > 0).
+ *  - SEED=WCGR: relic_rand_core.c uses windows.h CryptAcquireContext/
+ *    CryptGenRandom (already #undefs ERROR/WSIZE/DOUBLE before windows.h).
+ *  - On MSVC, relic_types.h takes the RLC_CONF_NODBL path (_umul128/_udiv128
+ *    intrinsics from <intrin.h>) since MSVC has no __uint128_t.
+ *
+ * @ingroup relic
+ */
+
+#ifndef RLC_CONF_H
+#define RLC_CONF_H
+
+/*============================================================================*/
+/* Version                                                                    */
+/*============================================================================*/
+
+/** Project version. */
+#define RLC_VERSION	"@VERSION@"
+
+/*============================================================================*/
+/* Library options (feature switches; defined only when enabled)              */
+/*============================================================================*/
+
+/** Debugging support. */
+#cmakedefine DEBUG
+
+/** Profiling support. */
+#cmakedefine PROFL
+
+/** Error-checking support. */
+#cmakedefine CHECK
+
+/** Verbose error messages. */
+#cmakedefine VERBS
+
+/** Overhead estimation. */
+#cmakedefine OVERH
+
+/** Build with printing disabled. */
+#cmakedefine QUIET
+
+/** Colored output. */
+#cmakedefine COLOR
+
+/** Big-endian support. */
+#cmakedefine BIGED
+
+/** Build only the selected algorithms. */
+#cmakedefine STRIP
+
+/*============================================================================*/
+/* Symbolic constants (identical to src/dashbls/configure.ac AC_DEFINEs)      */
+/*============================================================================*/
+
+/** Unknown or unrecognized parameter. */
+#define RELIC_NONE	0
+
+/** Atmel AVR ATMega128 8-bit architecture. */
+#define AVR		1
+
+/** MSP430 16-bit architecture. */
+#define MSP		2
+
+/** ARM 32-bit architecture. */
+#define ARM		3
+
+/** Intel x86-compatible 32-bit architecture. */
+#define X86		4
+
+/** AMD64-compatible 64-bit architecture. */
+#define X64		5
+
+/** Easy C-only backend. */
+#define EASY		1
+
+/** Backend based on GNU Multiple Precision library. */
+#define GMP		2
+
+/** GMP backend using constant-time code. */
+#define GMP_SEC		3
+
+/** OpenMP multithreading support. */
+#define OPENMP		1
+
+/** POSIX multithreading support. */
+#define PTHREAD		2
+
+/** GNU/Linux operating system. */
+#define LINUX		1
+
+/** FreeBSD operating system. */
+#define FREEBSD		2
+
+/** MacOS operating system. */
+#define MACOSX		3
+
+/** Windows operating system. */
+#define WINDOWS		4
+
+/** Android operating system. */
+#define DROID		5
+
+/** Arduino platform. */
+#define DUINO		6
+
+/** Per-process high-resolution timer. */
+#define HREAL		1
+
+/** Per-process high-resolution timer. */
+#define HPROC		2
+
+/** Per-thread high-resolution timer. */
+#define HTHRD		3
+
+/** ANSI-compatible timer. */
+#define ANSI		5
+
+/** POSIX-compatible timer. */
+#define POSIX		4
+
+/** Cycle-counting timer. */
+#define CYCLE		6
+
+/** Performance monitoring framework. */
+#define PERF		7
+
+/** Automatic memory allocation. */
+#define AUTO		1
+
+/** Dynamic memory allocation. */
+#define DYNAMIC		2
+
+/** RSA PKCS#1 v1.5 padding. */
+#define PKCS1		2
+
+/** RSA PKCS#1 v2.1 padding. */
+#define PKCS2		3
+
+/** SHA-224 hash function. */
+#define SH224		2
+
+/** SHA-256 hash function. */
+#define SH256		3
+
+/** SHA-384 hash function. */
+#define SH384		4
+
+/** SHA-512 hash function. */
+#define SH512		5
+
+/** BLAKE2s-160 hash function. */
+#define B2S160		6
+
+/** BLAKE2s-256 hash function. */
+#define B2S256		7
+
+/** NIST HASH-DRBG generator. */
+#define HASHD		1
+
+/** Intel RdRand instruction. */
+#define RDRND		2
+
+/** Operating system underlying generator. */
+#define UDEV		3
+
+/** Override library generator with the callback. */
+#define CALL		4
+
+/** Standard C library generator. */
+#define LIBC		1
+
+/** Use Windows' CryptGenRandom. */
+#define WCGR		4
+
+/** A multiple precision integer can store w words. */
+#define SINGLE		1
+
+/** A multiple precision integer can store the result of an addition. */
+#define CARRY		2
+
+/** A multiple precision integer can store the result of a multiplication. */
+#define DOUBLE		3
+
+/** Basic method. */
+#define BASIC		1
+
+/** Prime curves. */
+#define PRIME		1
+
+/** Tate pairing. */
+#define TATEP		1
+
+/** Comba method. */
+#define COMBA		2
+
+/** Lehmer's fast GCD Algorithm. */
+#define LEHME		2
+
+/** Safe prime generation. */
+#define SAFEP		2
+
+/** Fast reduction modulo special form prime. */
+#define QUICK		2
+
+/** Binary inversion. */
+#define BINAR		2
+
+/** Lazy-reduced extension field arithmetic. */
+#define LAZYR		2
+
+/** Lopez-Dahab multiplication. */
+#define LODAH		2
+
+/** Sliding window modular exponentiation. */
+#define SLIDE		2
+
+/** Projective coordinates. */
+#define PROJC		2
+
+/** Single-table comb method. */
+#define COMBS		2
+
+/** Shamir's trick. */
+#define TRICK		2
+
+/** Binary curves. */
+#define CHAR2		2
+
+/** Weil pairing. */
+#define WEILP		2
+
+/** Montgomery method. */
+#define MONTY		3
+
+/** Stein's binary GCD Algorithm. */
+#define STEIN		3
+
+/** Strong prime generation. */
+#define STRON		3
+
+/** Integrated modular addition. */
+#define INTEG		3
+
+/** Interleaving of w-(T)NAFs. */
+#define INTER		3
+
+/** Almost inverse algorithm. */
+#define ALMOS		3
+
+/** Jacobian coordinates. */
+#define JACOB		3
+
+/** Double-table comb method. */
+#define COMBD		3
+
+/** Halving. */
+#define HALVE		3
+
+/** Edwards curves. */
+#define EDDIE		3
+
+/** Extended projective twisted Edwards coordinates. */
+#define EXTND		3
+
+/** Optimal ate pairing. */
+#define OATEP		3
+
+/** Pseudo-Mersenne method. */
+#define PMERS		4
+
+/** Reuse multiplication for squaring. */
+#define MULTP		4
+
+/** Extended Euclidean algorithm. */
+#define EXGCD		4
+
+/** Left-to-right Width-w NAF. */
+#define LWNAF		4
+
+/** Joint sparse form. */
+#define JOINT		4
+
+/** Constant-time inversion by Bernstein-Yang division steps. */
+#define DIVST		5
+
+/** Itoh-Tsuji inversion. */
+#define ITOHT		5
+
+/** Left-to-right Width-w NAF. */
+#define LWREG		5
+
+/** Hardware-friendly inversion by Brunner-Curiger-Hofstetter. */
+#define BRUCH		6
+
+/** Constant-time version of almost inverse. */
+#define CTAIA		7
+
+/** Use implementation provided by the lower layer. */
+#define LOWER		8
+
+/*============================================================================*/
+/* Platform                                                                   */
+/*============================================================================*/
+
+/** Detected architecture. */
+#cmakedefine ARCH @ARCH@
+
+/** Size of word in bits on this architecture. */
+#define WSIZE @WSIZE@
+
+/** Detected operating system. */
+#cmakedefine OPSYS @OPSYS@
+
+/** Byte boundary to align digit vectors. */
+#define ALIGN @ALIGN@
+
+/** Chosen arithmetic backend. */
+#cmakedefine ARITH @ARITH@
+
+/*============================================================================*/
+/* Library modules (defined as 1 when the module is built)                    */
+/*============================================================================*/
+
+/** Build multiple precision integer module. */
+#cmakedefine01 WITH_BN
+
+/** Temporary double-precision digit vectors. */
+#cmakedefine01 WITH_DV
+
+/** Build prime field module. */
+#cmakedefine01 WITH_FP
+
+/** Build prime field extension module. */
+#cmakedefine01 WITH_FPX
+
+/** Build binary field module. */
+#cmakedefine01 WITH_FB
+
+/** Build binary field extension module. */
+#cmakedefine01 WITH_FBX
+
+/** Build prime elliptic curve module. */
+#cmakedefine01 WITH_EP
+
+/** Build prime field extension elliptic curve module. */
+#cmakedefine01 WITH_EPX
+
+/** Build binary elliptic curve module. */
+#cmakedefine01 WITH_EB
+
+/** Build elliptic Edwards curve module. */
+#cmakedefine01 WITH_ED
+
+/** Build elliptic curve cryptography module. */
+#cmakedefine01 WITH_EC
+
+/** Build pairings over prime curves module. */
+#cmakedefine01 WITH_PP
+
+/** Build pairing-based cryptography module. */
+#cmakedefine01 WITH_PC
+
+/** Build block ciphers. */
+#cmakedefine01 WITH_BC
+
+/** Build hash functions. */
+#cmakedefine01 WITH_MD
+
+/** Build cryptographic protocols. */
+#cmakedefine01 WITH_CP
+
+/** Build multi-party computation primitives. */
+#cmakedefine01 WITH_MPC
+
+/*============================================================================*/
+/* Multiple precision arithmetic (BN)                                         */
+/*============================================================================*/
+
+/** Required precision in bits. */
+#define BN_PRECI @BN_PRECI@
+
+/** Number of Karatsuba steps. */
+#define BN_KARAT @BN_KARAT@
+
+/** Effective size of a multiple precision integer. */
+#cmakedefine BN_MAGNI @BN_MAGNI@
+
+/** Multiple precision arithmetic methods. */
+#define BN_METHD "@BN_METHD@"
+
+/** Chosen multiple precision multiplication method. */
+#cmakedefine BN_MUL @BN_MUL@
+
+/** Chosen multiple precision squaring method. */
+#cmakedefine BN_SQR @BN_SQR@
+
+/** Chosen multiple precision modular reduction method. */
+#cmakedefine BN_MOD @BN_MOD@
+
+/** Chosen multiple precision modular exponentiation method. */
+#cmakedefine BN_MXP @BN_MXP@
+
+/** Chosen multiple precision greatest common divisor method. */
+#cmakedefine BN_GCD @BN_GCD@
+
+/** Chosen prime generation algorithm. */
+#cmakedefine BN_GEN @BN_GEN@
+
+/*============================================================================*/
+/* Prime field arithmetic (FP)                                                */
+/*============================================================================*/
+
+/** Prime field size in bits. */
+#define FP_PRIME @FP_PRIME@
+
+/** Number of Karatsuba steps. */
+#define FP_KARAT @FP_KARAT@
+
+/** Width of window processing for exponentiation methods. */
+#define FP_WIDTH @FP_WIDTH@
+
+/** Prime field arithmetic methods. */
+#define FP_METHD "@FP_METHD@"
+
+/** Chosen prime field addition method. */
+#cmakedefine FP_ADD @FP_ADD@
+
+/** Chosen prime field multiplication method. */
+#cmakedefine FP_MUL @FP_MUL@
+
+/** Chosen prime field squaring method. */
+#cmakedefine FP_SQR @FP_SQR@
+
+/** Chosen prime field reduction method. */
+#cmakedefine FP_RDC @FP_RDC@
+
+/** Chosen prime field inversion method. */
+#cmakedefine FP_INV @FP_INV@
+
+/** Chosen prime field exponentiation method. */
+#cmakedefine FP_EXP @FP_EXP@
+
+/** Use -1 as quadratic non-residue. */
+#cmakedefine FP_QNRES
+
+/** Prefer special form primes over random primes. */
+#cmakedefine FP_PMERS
+
+/*============================================================================*/
+/* Prime extension field arithmetic (FPX)                                     */
+/*============================================================================*/
+
+/** Prime extension field arithmetic methods. */
+#define FPX_METHD "@FPX_METHD@"
+
+/** Chosen extension field arithmetic method. */
+#cmakedefine FPX_QDR @FPX_QDR@
+
+/** Chosen extension field arithmetic method. */
+#cmakedefine FPX_CBC @FPX_CBC@
+
+/** Chosen extension field reduction method. */
+#cmakedefine FPX_RDC @FPX_RDC@
+
+/*============================================================================*/
+/* Binary field arithmetic (FB)                                               */
+/*============================================================================*/
+
+/** Binary field arithmetic methods. */
+#define FB_METHD "@FB_METHD@"
+
+/** Irreducible polynomial size in bits. */
+#define FB_POLYN @FB_POLYN@
+
+/** Number of Karatsuba levels. */
+#define FB_KARAT @FB_KARAT@
+
+/** Width of window processing for exponentiation methods. */
+#define FB_WIDTH @FB_WIDTH@
+
+/** Chosen binary field multiplication method. */
+#cmakedefine FB_MUL @FB_MUL@
+
+/** Chosen binary field squaring method. */
+#cmakedefine FB_SQR @FB_SQR@
+
+/** Chosen binary field modular reduction method. */
+#cmakedefine FB_RDC @FB_RDC@
+
+/** Chosen binary field square root method. */
+#cmakedefine FB_SRT @FB_SRT@
+
+/** Chosen trace computation method. */
+#cmakedefine FB_TRC @FB_TRC@
+
+/** Chosen method to solve a quadratic equation. */
+#cmakedefine FB_SLV @FB_SLV@
+
+/** Chosen binary field inversion method. */
+#cmakedefine FB_INV @FB_INV@
+
+/** Chosen binary field exponentiation method. */
+#cmakedefine FB_EXP @FB_EXP@
+
+/** Chosen iterator method for quadratic equations. */
+#cmakedefine FB_ITR @FB_ITR@
+
+/** Prefer trinomials over pentanomials. */
+#cmakedefine FB_TRINO
+
+/** Prefer square-root friendly polynomials. */
+#cmakedefine FB_SQRTF
+
+/** Precompute multiplication table for sqrt(z). */
+#cmakedefine FB_PRECO
+
+/*============================================================================*/
+/* Prime elliptic curves (EP)                                                 */
+/*============================================================================*/
+
+/** Prime elliptic curve arithmetic methods. */
+#define EP_METHD "@EP_METHD@"
+
+/** Width of precomputation table for fixed point methods. */
+#define EP_DEPTH @EP_DEPTH@
+
+/** Width of window processing for unknown point methods. */
+#define EP_WIDTH @EP_WIDTH@
+
+/** Chosen prime elliptic curve coordinate method. */
+#cmakedefine EP_ADD @EP_ADD@
+
+/** Chosen prime elliptic curve point multiplication method. */
+#cmakedefine EP_MUL @EP_MUL@
+
+/** Chosen prime elliptic curve fixed point multiplication method. */
+#cmakedefine EP_FIX @EP_FIX@
+
+/** Chosen prime elliptic curve simultaneous multiplication method. */
+#cmakedefine EP_SIM @EP_SIM@
+
+/** Support for prime curves with efficient endomorphisms. */
+#cmakedefine EP_ENDOM
+
+/** Use mixed coordinates. */
+#cmakedefine EP_MIXED
+
+/** Build precomputation table for generator. */
+#cmakedefine EP_PRECO
+
+/** Enable isogeny map for SSWU map-to-curve. */
+#cmakedefine EP_CTMAP
+
+/*============================================================================*/
+/* Binary elliptic curves (EB)                                                */
+/*============================================================================*/
+
+/** Binary elliptic curve arithmetic methods. */
+#define EB_METHD "@EB_METHD@"
+
+/** Width of precomputation table for fixed point methods. */
+#define EB_DEPTH @EB_DEPTH@
+
+/** Width of window processing for unknown point methods. */
+#define EB_WIDTH @EB_WIDTH@
+
+/** Chosen binary elliptic curve coordinate method. */
+#cmakedefine EB_ADD @EB_ADD@
+
+/** Chosen binary elliptic curve point multiplication method. */
+#cmakedefine EB_MUL @EB_MUL@
+
+/** Chosen binary elliptic curve fixed point multiplication method. */
+#cmakedefine EB_FIX @EB_FIX@
+
+/** Chosen binary elliptic curve simultaneous multiplication method. */
+#cmakedefine EB_SIM @EB_SIM@
+
+/** Support for ordinary curves without endomorphisms. */
+#cmakedefine EB_PLAIN
+
+/** Support for Koblitz anomalous binary curves. */
+#cmakedefine EB_KBLTZ
+
+/** Use mixed coordinates. */
+#cmakedefine EB_MIXED
+
+/** Build precomputation table for generator. */
+#cmakedefine EB_PRECO
+
+/*============================================================================*/
+/* Edwards elliptic curves (ED)                                               */
+/*============================================================================*/
+
+/** Edwards elliptic curve arithmetic methods. */
+#define ED_METHD "@ED_METHD@"
+
+/** Width of precomputation table for fixed point methods. */
+#define ED_DEPTH @ED_DEPTH@
+
+/** Width of window processing for unknown point methods. */
+#define ED_WIDTH @ED_WIDTH@
+
+/** Chosen Edwards elliptic curve coordinate method. */
+#cmakedefine ED_ADD @ED_ADD@
+
+/** Chosen Edwards elliptic curve point multiplication method. */
+#cmakedefine ED_MUL @ED_MUL@
+
+/** Chosen Edwards elliptic curve fixed point multiplication method. */
+#cmakedefine ED_FIX @ED_FIX@
+
+/** Chosen Edwards elliptic curve simultaneous multiplication method. */
+#cmakedefine ED_SIM @ED_SIM@
+
+/** Build precomputation table for generator. */
+#cmakedefine ED_PRECO
+
+/*============================================================================*/
+/* Elliptic curve cryptography (EC)                                           */
+/*============================================================================*/
+
+/** Chosen elliptic curve cryptography method. */
+#define EC_METHD "@EC_METHD@"
+
+/** Chosen elliptic curve type. */
+#cmakedefine EC_CUR @EC_CUR@
+
+/** Prefer curves with endomorphisms. */
+#cmakedefine EC_ENDOM
+
+/*============================================================================*/
+/* Pairings (PP)                                                              */
+/*============================================================================*/
+
+/** Bilinear pairing methods. */
+#define PP_METHD "@PP_METHD@"
+
+/** Chosen extension field arithmetic method. */
+#cmakedefine PP_EXT @PP_EXT@
+
+/** Chosen pairing method over prime elliptic curves. */
+#cmakedefine PP_MAP @PP_MAP@
+
+/*============================================================================*/
+/* Hash functions (MD)                                                        */
+/*============================================================================*/
+
+/** Available hash functions. */
+#define MD_METHD "@MD_METHD@"
+
+/** Chosen hash function. */
+#cmakedefine MD_MAP @MD_MAP@
+
+/*============================================================================*/
+/* Cryptographic protocols (CP)                                               */
+/*============================================================================*/
+
+/** Support for faster CRT-based exponentiation. */
+#cmakedefine CP_CRT
+
+/** Chosen RSA padding method. */
+#cmakedefine CP_RSAPD @CP_RSAPD@
+
+/*============================================================================*/
+/* Core settings                                                              */
+/*============================================================================*/
+
+/** Chosen memory allocation policy. */
+#cmakedefine ALLOC @ALLOC@
+
+/** Chosen random generator. */
+#cmakedefine RAND @RAND@
+
+/**
+ * Chosen multithreading API. Left undefined when empty: build-dashbls.ps1
+ * passes -DMULTI= for the native MSVC build (no pthread.h, no OpenMP
+ * threadprivate on MSVC), in which case the directive below leaves MULTI
+ * undefined, Relic uses a single global context, and
+ * src/dashbls/src/bls.cpp initializes it directly.
+ */
+#cmakedefine MULTI @MULTI@
+
+/** Chosen timer. */
+#cmakedefine TIMER @TIMER@
+
+/** Chosen random generator seeder. */
+#cmakedefine SEED @SEED@
+
+#endif /* !RLC_CONF_H */

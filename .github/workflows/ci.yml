@@ -202,7 +202,7 @@ jobs:
 
       - name: Restore static Qt cache
         id: static-qt-cache
-        uses: actions/cache/restore@v3
+        uses: actions/cache/restore@v4
         with:
           path: C:\Qt_static
           key: ${{ github.job }}-static-qt-${{ hashFiles('msbuild_version', 'qt_url', 'qt_conf') }}
@@ -245,14 +245,40 @@ jobs:
 
       - name: Save static Qt cache
         if: steps.static-qt-cache.outputs.cache-hit != 'true'
-        uses: actions/cache/save@v3
+        uses: actions/cache/save@v4
         with:
           path: C:\Qt_static
           key: ${{ github.job }}-static-qt-${{ hashFiles('msbuild_version', 'qt_url', 'qt_conf') }}
 
+      - name: Stage Relic config template
+        shell: powershell
+        # build-dashbls.ps1 copies this into src/dashbls/** during the build.
+        # Doing it here too keeps the tree identical at restore-hash time and
+        # save-hash time, so the cache key is stable and actually hits.
+        run: Copy-Item build_msvc/dashbls-relic-conf.h.in src/dashbls/depends/relic/include/relic_conf.h.in -Force
+
+      - name: Restore DashBLS build cache
+        id: dashbls-cache
+        uses: actions/cache/restore@v4
+        with:
+          path: build_msvc\dashbls-install
+          key: ${{ github.job }}-dashbls-${{ hashFiles('build_msvc/build-dashbls.ps1', 'build_msvc/dashbls-relic-conf.h.in', 'msbuild_version', 'src/dashbls/**') }}
+
+      - name: Build DashBLS (relic + mimalloc + bls static lib)
+        if: steps.dashbls-cache.outputs.cache-hit != 'true'
+        shell: powershell
+        run: build_msvc\build-dashbls.ps1 -Configuration Release
+
+      - name: Save DashBLS build cache
+        if: steps.dashbls-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: build_msvc\dashbls-install
+          key: ${{ github.job }}-dashbls-${{ hashFiles('build_msvc/build-dashbls.ps1', 'build_msvc/dashbls-relic-conf.h.in', 'msbuild_version', 'src/dashbls/**') }}
+
       - name: Ccache installation cache
         id: ccache-installation-cache
-        uses: actions/cache@v3
+        uses: actions/cache@v4
         with:
           path: |
             C:\ProgramData\chocolatey\lib\ccache

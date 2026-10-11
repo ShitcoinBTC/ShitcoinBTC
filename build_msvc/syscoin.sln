@@ -50,6 +50,8 @@ Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "test_syscoin-qt", "test_sys
 EndProject
 Project("{542007E3-BE0D-4B0D-A6B0-AA8813E2558D}") = "libminisketch", "libminisketch\libminisketch.vcxproj", "{542007E3-BE0D-4B0D-A6B0-AA8813E2558D}"
 EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "libnevm", "libnevm\libnevm.vcxproj", "{32DC804B-A736-40ED-B14A-064324A1F12E}"
+EndProject
 Global
     GlobalSection(SolutionConfigurationPlatforms) = preSolution
         Debug|x64 = Debug|x64
@@ -152,6 +154,10 @@ Global
         {542007E3-BE0D-4B0D-A6B0-AA8813E2558D}.Debug|x64.Build.0 = Debug|x64
         {542007E3-BE0D-4B0D-A6B0-AA8813E2558D}.Release|x64.ActiveCfg = Release|x64
         {542007E3-BE0D-4B0D-A6B0-AA8813E2558D}.Release|x64.Build.0 = Release|x64
+        {32DC804B-A736-40ED-B14A-064324A1F12E}.Debug|x64.ActiveCfg = Debug|x64
+        {32DC804B-A736-40ED-B14A-064324A1F12E}.Debug|x64.Build.0 = Debug|x64
+        {32DC804B-A736-40ED-B14A-064324A1F12E}.Release|x64.ActiveCfg = Release|x64
+        {32DC804B-A736-40ED-B14A-064324A1F12E}.Release|x64.Build.0 = Release|x64
     EndGlobalSection
     GlobalSection(SolutionProperties) = preSolution
         HideSolutionNode = FALSE

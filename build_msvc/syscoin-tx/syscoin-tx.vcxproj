@@ -18,6 +18,9 @@
     <ProjectReference Include="..\libsyscoin_common\libsyscoin_common.vcxproj">
       <Project>{7c87e378-df58-482e-aa2f-1bc129bc19ce}</Project>
     </ProjectReference>
+    <ProjectReference Include="..\libnevm\libnevm.vcxproj">
+      <Project>{32dc804b-a736-40ed-b14a-064324a1f12e}</Project>
+    </ProjectReference>
     <ProjectReference Include="..\libsyscoin_crypto\libsyscoin_crypto.vcxproj">
       <Project>{6190199c-6cf4-4dad-bfbd-93fa72a760c1}</Project>
     </ProjectReference>

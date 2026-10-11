@@ -50,6 +50,9 @@
     <ProjectReference Include="..\libsyscoin_node\libsyscoin_node.vcxproj">
       <Project>{460fee33-1fe1-483f-b3bf-931ff8e969a5}</Project>
     </ProjectReference>
+    <ProjectReference Include="..\libnevm\libnevm.vcxproj">
+      <Project>{32dc804b-a736-40ed-b14a-064324a1f12e}</Project>
+    </ProjectReference>
     <ProjectReference Include="..\libsyscoin_util\libsyscoin_util.vcxproj">
       <Project>{b53a5535-ee9d-4c6f-9a26-f79ee3bc3754}</Project>
     </ProjectReference>

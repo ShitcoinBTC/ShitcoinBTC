@@ -4,6 +4,7 @@
   "dependencies": [
     "berkeleydb",
     "boost-multi-index",
+    "boost-multiprecision",
     "boost-process",
     "boost-signals2",
     "boost-test",
