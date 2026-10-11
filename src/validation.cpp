@@ -3186,6 +3186,27 @@ bool Chainstate::ConnectBlock(const CBlock& block, BlockValidationState& state, 
         }
     }
     // END SYSCOIN
+    // SHITCOIN: standalone coinbase value-cap enforcement. Runs under its own
+    // height gate (nCoinbaseCapStartBlock), deliberately NOT nested in the
+    // fNexusContext block above: activating the full Nexus context would also
+    // switch on the auxpow-tag parent-block check, which rejects every block
+    // this chain's miner produces (chain halt). This block changes nothing else.
+    if (fRegTest || pindex->nHeight >= params.GetConsensus().nCoinbaseCapStartBlock) {
+        const CAmount coinbaseCapReward = GetBlockSubsidy(pindex->nHeight, params.GetConsensus());
+        const bool check_superblock = llmq::chainLocksHandler->GetBestChainLock().nHeight < pindex->nHeight;
+        std::string strError;
+        // Pre-DIP3 the masternode seniority/floor adjustments are always zero
+        // (CMasternodePayments::IsTransactionValid returns early when DIP3 is
+        // not enforced), so the cap is exactly GetBlockSubsidy + fees, which
+        // matches what the miner's coinbases pay.
+        if (!IsBlockValueValid(block, pindex, coinbaseCapReward + nFees, strError, fJustCheck, check_superblock)) {
+            LogPrintf("ERROR: ConnectBlock(): %s\n", strError);
+            // hack for feature_signet.py to pass which uses bitcoin blocks signed by the signet witness
+            if (!fSigNet || pindex->nHeight > 100) {
+                return state.Invalid(BlockValidationResult::BLOCK_CONSENSUS, "bad-cb-amount");
+            }
+        }
+    }
     // Native vault yield schedule caps (consensus, enforced in fJustCheck mode too).
     if (nBlockVaultYield > 0) {
         const int32_t nVaultYear = pindex->nHeight / params.GetConsensus().nSubsidyHalvingInterval;

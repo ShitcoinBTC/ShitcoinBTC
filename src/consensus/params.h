@@ -172,6 +172,12 @@ struct Params {
     int64_t nNEVMStartTime;
     int nPODAStartBlock;
     int nNexusStartBlock;
+    /** ShitcoinBTC: standalone activation height for the coinbase value cap
+     * (IsBlockValueValid in ConnectBlock). Independent of nNexusStartBlock so
+     * the mint ceiling can be enforced without activating the full Nexus
+     * context (whose auxpow-tag parent-block check would reject this chain's
+     * miner blocks). */
+    int nCoinbaseCapStartBlock;
     int nV19StartBlock;
     uint64_t nMinMNSubsidySats;
         

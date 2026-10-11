@@ -208,6 +208,11 @@ public:
         consensus.nPODAStartBlock = 1586000;
         consensus.nV19StartBlock = 1586000;
         consensus.nNexusStartBlock = 2010345;
+        // PROPOSED activation height for the standalone coinbase value cap.
+        // Jodie must confirm this exact height before anything deploys.
+        // Live height was 68647 at patch time; 71000 gives ~14-20h of
+        // coordinated-upgrade headroom at observed block pacing.
+        consensus.nCoinbaseCapStartBlock = 71000;
         consensus.DIP0003Height = 1004200;
         consensus.DIP0003EnforcementHeight = 1004200;
         /**
@@ -348,6 +353,7 @@ public:
         consensus.nPODAStartBlock = 1022500;
         consensus.nV19StartBlock = 1063000;
         consensus.nNexusStartBlock = 1505000;
+        consensus.nCoinbaseCapStartBlock = 1505000;
         consensus.DIP0003Height = 545000;
         consensus.DIP0003EnforcementHeight = 545000;
         pchMessageStart[0] = 0xce;
@@ -589,6 +595,7 @@ public:
         consensus.nNEVMStartTime = 0;
         consensus.nPODAStartBlock = 0;
         consensus.nNexusStartBlock = opts.dip3startblock;
+        consensus.nCoinbaseCapStartBlock = 1;
         consensus.nV19StartBlock = opts.v19startblock;
         consensus.DIP0003Height = opts.dip3startblock;
         consensus.DIP0003EnforcementHeight = opts.dip3enforcement;
