@@ -61,7 +61,14 @@ bool IsBlockValueValid(const CBlock& block, const CBlockIndex* pindex, const CAm
         return isBlockRewardValueMet;
     }
     if(nBlockHeight < Params().GetConsensus().DIP0003Height) {
-        return true;
+        // Pre-DIP3 there are no masternodes or quorums, so no legitimate
+        // superblock payments can exist at superblock heights. Enforce the
+        // plain block-reward cap instead of accepting any amount.
+        if (!isBlockRewardValueMet) {
+            strErrorRet = strprintf("coinbase pays too much at height %d (actual=%d vs limit=%d), exceeded block reward, only regular blocks are allowed pre-DIP3",
+                            nBlockHeight, block.vtx[0]->GetValueOut(), blockReward);
+        }
+        return isBlockRewardValueMet;
     }
     const CAmount nSuperblockPayment = block.vtx[0]->GetValueOut() - blockReward;
     int sbCycle = Params().GetConsensus().SuperBlockCycle(nBlockHeight);
