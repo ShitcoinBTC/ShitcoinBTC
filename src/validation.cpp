@@ -3023,7 +3023,10 @@ bool Chainstate::ConnectBlock(const CBlock& block, BlockValidationState& state, 
     // SYSCOIN
     const uint256 blockHash = block.GetHash();
     bool fNexusContext = pindex->nHeight >= params.GetConsensus().nNexusStartBlock || fRegTest;
-    fScriptChecks = fScriptChecks && fNexusContext;
+    // ShitcoinBTC: script checks run unconditionally. Gating them on fNexusContext
+    // (whose start height was copied from Syscoin mainnet and never reached on this
+    // chain) silently disabled ALL signature verification on mainnet. Do not
+    // reintroduce a height gate here without a coordinated upgrade.
     CDeterministicMNListNEVMAddressDiff diff;
     // MUST process special txes before updating UTXO to ensure consistency between mempool and block processing
     if (!ProcessSpecialTxsInBlock(m_chainman, block, pindex, state, diff, view, fJustCheck, fScriptChecks, m_chainman.IsInitialBlockDownload())) {
