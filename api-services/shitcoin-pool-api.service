@@ -1,0 +1,28 @@
+[Unit]
+Description=Shitcoin Pool Public API (read-only, node2 BTC stratum pool aggregates)
+After=network.target shitcoin-pool.service
+Wants=shitcoin-pool.service
+
+[Service]
+Type=simple
+User=shitcoin
+Group=shitcoin
+WorkingDirectory=/home/shitcoin/pool-api
+ExecStart=/usr/bin/python3 /home/shitcoin/pool-api/pool_api.py
+Environment=POOL_DB=/home/shitcoin/pool/pool.db
+Environment=POOL_STATS_URL=http://127.0.0.1:8080/api/stats
+Environment=POOL_API_HOST=0.0.0.0
+Environment=POOL_API_PORT=8091
+Environment=POOL_API_STATE=/home/shitcoin/pool-api/state.json
+Restart=always
+RestartSec=5
+# read-only by construction: sqlite mode=ro; the only write is state.json
+# in its own directory (last_ready_at feed-health tracking).
+MemoryMax=128M
+NoNewPrivileges=true
+ProtectSystem=strict
+ReadWritePaths=/home/shitcoin/pool-api
+ReadOnlyPaths=/home/shitcoin/pool/pool.db
+
+[Install]
+WantedBy=multi-user.target

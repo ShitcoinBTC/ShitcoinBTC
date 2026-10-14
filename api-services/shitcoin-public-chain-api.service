@@ -1,0 +1,29 @@
+# ShitcoinBTC public read-only chain API — per deploy cell STANDARDS.md §8.
+# Install (deploy cell / lead approval):
+#   cp chain_api.py /home/shitcoin/public-api/chain_api.py  (already staged there 2026-10-14, owned shitcoin)
+#   cp this file /etc/systemd/system/shitcoin-public-chain-api.service
+#   systemctl daemon-reload && systemctl enable --now shitcoin-public-chain-api.service
+# ProtectHome is intentionally UNSET: the service must read the syscoind
+# RPC cookie at /home/shitcoin/.syscoin/.cookie (mode 600, user shitcoin).
+[Unit]
+Description=ShitcoinBTC public read-only chain API (/api/v1/chain, :5020)
+After=network.target syscoind.service
+Wants=syscoind.service
+
+[Service]
+Type=simple
+User=shitcoin
+Group=shitcoin
+WorkingDirectory=/home/shitcoin/public-api
+ExecStart=/usr/bin/python3 /home/shitcoin/public-api/chain_api.py
+Restart=on-failure
+RestartSec=5
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+CapabilityBoundingSet=
+MemoryMax=256M
+UMask=0027
+
+[Install]
+WantedBy=multi-user.target
