@@ -7,10 +7,10 @@ The canonical, rendered version of this document is the public docs page at
 https://shitcoinbtc.xyz/api-docs. This file mirrors it for the repository.
 
 > Status (2026-10-14): the signed Exchange Trading API v1 (section 6) is live.
-> The Chain, Exchange Market Data, CoinGecko, and Pool APIs (sections 2–5) are
-> built and in staged deployment — endpoint contracts below are final, and each
-> section goes live as its deployment is verified. The Swap API (section 7) is
-> a draft: no endpoints are documented because none are verified yet.
+> The Chain, Exchange Market Data, CoinGecko, Pool, and Swap APIs
+> (sections 2–5 and 7) are built and in staged deployment — endpoint contracts
+> below are as built by the owning services, and each section goes live as its
+> deployment is verified.
 >
 > This document is about the website's public HTTP APIs. It is not the node
 > daemon's own interfaces — those are [JSON-RPC](JSON-RPC-interface.md) and the
@@ -201,18 +201,34 @@ Corrections recorded 2026-10-14: the markets count is 70 (an earlier docs
 version said 58, and its ticker example showed numbers that did not match the
 live tape — examples are now real sampled responses).
 
-## 7. Swap API — `/api/v1/swap/` (draft, not live)
+## 7. Swap API — `/api/v1/swap/`
 
-A public swap read API is in development and is not live yet; no endpoints are
-documented because none are verified. When it ships, this section will list
-only chains where a quote was verified end-to-end, and will state that a quote
-is a quote — not a completed swap and not a volume figure.
+Shity Swap is non-custodial: swaps execute in the user's own wallet against
+external aggregator venues. This read-only API reports quote availability and
+live quotes from the same venues the swap page uses. It never builds
+transactions, signs, or places orders.
 
-Quote sources verified by live probe on 2026-10-14, for the record: Velora
-returned quotes on Ethereum, Base, BNB Chain, Arbitrum, Avalanche, Optimism,
-Gnosis, Unichain, and Robinhood Chain (Sonic returned a service error and is
-not counted); Kyber returned quotes on Polygon, Optimism, Unichain, Linea, and
-Robinhood Chain; Jupiter returned a quote on Solana. One probed aggregator
-(OpenOcean) returned access errors and is not a working quote source. Shity
-Swap's own-router contracts on the chains sampled report zero created pairs,
-so no own-router pairs are claimed.
+Quotes are not swaps. Every quote response is labeled `"type": "quote"` and
+`"is_completed_swap": false`. The platform keeps no swap ledger, so there is
+no completed-swaps feed to publish (see `/swaps` below). A chain is listed as
+available only when a live probe quote for it returned a non-zero output
+amount at probe time (probes cached 60 s); every other chain is listed as
+unavailable, with the probe failure as the reason.
+
+| Endpoint | Description |
+|---|---|
+| `GET /api/v1/swap/chains` | Per-chain availability, probed live: status (`available`/`unavailable`), answering venue, probe result or failure reason; plus `available_count` / `unavailable_count`. Availability is a probe result — it changes; do not cache it as permanent truth. |
+| `GET /api/v1/swap/pairs?chain=ethereum` | Only pairs verified quotable by a live probe, each marked with that basis. Not an enumeration of every pair the venues can price. |
+| `GET /api/v1/swap/quote?chain=&tokenIn=&tokenOut=&amountIn=` | A live quote from the chain's venue. `tokenIn` is `native` or a token address (a mint on Solana); `amountIn` is an integer in smallest units. A quote is a price offer at that moment — not a completed swap, not a trade record, not a volume figure. |
+| `GET /api/v1/swap/liquidity?chain=` | On chains with a Shity Swap own AMM factory: the factory's pair count read on-chain (0 = no own-pool liquidity). Elsewhere: an explanation that aggregator liquidity is not exposed as a single verifiable number. No TVL figure is published, because none can be verified. |
+| `GET /api/v1/swap/fees` | Per-venue fee configuration as data fields only, each with the source it was read from. This API charges nothing and executes nothing. |
+| `GET /api/v1/swap/swaps` | Completed swaps: an empty list, with the explanation that no swap ledger exists (non-custodial; the page's "recent swaps" list is per-browser storage), plus the verifiable on-chain state of the own-router factories — zero created pairs on Monad, HyperEVM, and Avalanche, so no own-router swap can have occurred there. |
+
+Probe record, 2026-10-14: Velora returned quotes on Ethereum, Base, BNB
+Chain, Arbitrum, Avalanche, Optimism, Gnosis, Unichain, Polygon, and
+Robinhood Chain (Sonic returned a service error); Kyber returned quotes on
+Polygon, Optimism, Unichain, Linea, and Robinhood Chain; Jupiter returned a
+quote on Solana. One probed aggregator (OpenOcean) returned access errors, so
+chains whose only quote path is OpenOcean report unavailable. Shity Swap's
+own-router contracts on the chains sampled report zero created pairs, so no
+own-router pairs are claimed.
