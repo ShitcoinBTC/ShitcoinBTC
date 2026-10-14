@@ -57,6 +57,26 @@ Shitcoin is a merge-minable SHA256 coin which provides an array of useful servic
 
 For more information read the Shitcoin whitepaper.
 
+Mining
+------
+
+SHIT is merge-mined with **Bitcoin mainnet** — real Bitcoin Core, real
+Bitcoin blocks. Merge-mining is mandatory from block 1: a Shitcoin block
+without a valid AuxPoW proof anchored in a Bitcoin mainnet block is
+rejected by consensus, so there is no standalone, simulated, regtest,
+testnet, or signet way to mine production SHIT. Bitcoin (the parent
+chain, BTC) and ShitcoinBTC (this chain, SHIT) are two different chains
+with two different nodes; do not confuse their networks, data
+directories, or snapshots.
+
+Miners and pool operators: follow
+[doc/bitcoin-mainnet-mining.md](doc/bitcoin-mainnet-mining.md). It covers
+connecting an existing Bitcoin Core node, setting up a new one with the
+verified Bitcoin UTXO snapshot, checking a node is really on mainnet
+(`contrib/mining/check-bitcoin-mainnet.sh`), and migrating off any older
+synthetic setup without re-downloading the Shitcoin chain. Shitcoin's
+own testnet/regtest modes exist for development and testing only.
+
 License
 -------
 
