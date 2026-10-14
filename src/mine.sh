@@ -1,9 +1,36 @@
 #!/usr/bin/env bash
 
 # ---------------------------------------
+# WARNING: REGTEST / LOCAL TESTING ONLY
+# ---------------------------------------
+# This script mines by looping `generatetoaddress`, which creates
+# blocks on demand. That only works on regtest, where blocks can be
+# generated locally for testing.
+#
+# It CANNOT mine production SHIT. Shitcoin mainnet is merge-mined with
+# Bitcoin: consensus rejects any mainnet block without a valid AuxPoW
+# proof anchored in a real Bitcoin mainnet block ("no-auxpow").
+# Standalone mining is not a thing on mainnet, no matter how long this
+# loop runs.
+#
+# For real mining, see doc/bitcoin-mainnet-mining.md: point SHA-256
+# hardware at a Shitcoin-aware pool, or (pool operators) run a real
+# Bitcoin Core mainnet node as the parent chain.
+
+# ---------------------------------------
 # Configuration
 # ---------------------------------------
 WALLET_NAME="myminewallet"
+
+# ---------------------------------------
+# 0. Refuse to run outside regtest
+# ---------------------------------------
+CHAIN=$(syscoin-cli getblockchaininfo 2>/dev/null | sed -n 's/.*"chain"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' | head -n1)
+if [ "$CHAIN" != "regtest" ]; then
+  echo "ERROR: mine.sh is a regtest-only testing script, but the node reports chain='${CHAIN:-unknown}'." >&2
+  echo "Production SHIT is merge-mined with real Bitcoin mainnet — see doc/bitcoin-mainnet-mining.md." >&2
+  exit 1
+fi
 
 # ---------------------------------------
 # 1. Ensure a wallet is available
