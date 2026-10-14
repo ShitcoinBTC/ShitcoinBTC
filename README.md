@@ -17,6 +17,8 @@ For an immediately usable, binary version of the Shitcoin Core software, see the
 
 Further information about Shitcoin Core is available in the [doc folder](/doc).
 
+Public HTTP APIs for the ShitcoinBTC chain, the ShityDEX exchange, Shity Swap, and the mining pool are documented in [doc/public-api.md](doc/public-api.md) (rendered version: https://shitcoinbtc.xyz/api-docs). Those website APIs are separate from the node daemon's [JSON-RPC](doc/JSON-RPC-interface.md) and [REST](doc/REST-interface.md) interfaces.
+
 What is Shitcoin Core?
 ----------------
 
