@@ -11,6 +11,14 @@
 # chain, this is likely not very useful in production.  But it can be used
 # for testing and debugging.
 #
+# WARNING (Shitcoin mainnet): "fake" here means exactly that — the parent
+# block is constructed locally, not mined on Bitcoin. Work produced this
+# way is NOT valid on Shitcoin mainnet, where consensus requires an
+# AuxPoW proof anchored in a real Bitcoin mainnet block. Use this wrapper
+# on regtest/test networks for testing and debugging only. For production
+# merge-mining against real Bitcoin Core mainnet, see
+# doc/bitcoin-mainnet-mining.md.
+#
 # This needs jsonrpclib, which can be found in the 'python-jsonrpclib' Debian
 # package or at https://github.com/joshmarshall/jsonrpclib.  It also imports
 # auxpow from test/functional/test_framework.
