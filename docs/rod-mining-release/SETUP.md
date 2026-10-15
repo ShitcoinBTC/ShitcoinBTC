@@ -1,7 +1,8 @@
 # Setup — nodes for merge mining SHIT
 
-You need two daemons: a **SHIT node** (`syscoind`, for `createauxblock`/`submitauxblock`)
-and a **Bitcoin node** (official Bitcoin Core, your source of parent work). They can run
+You need two daemons: a **SHIT node** (`syscoind` — validates the chain and accepts
+the merge-mined blocks your pool builds and submits with `submitblock`) and a
+**Bitcoin node** (official Bitcoin Core, your source of parent work). They can run
 on the same machine. Configuration examples below are checked against our production
 configuration.
 
@@ -20,16 +21,24 @@ configuration.
   ```
 - **Do NOT enable `zmqpubnevm` on a pool node.** That was the October stall: a pool node
   doing full ZMQ/NEVM state validation wedged at block 48,000. Pool nodes validate SHIT
-  blocks from the P2P network in lockstep and need no local sysgeth feed to issue
-  `createauxblock` work. (If your wrapper script launches sysgeth, make sure it passes
-  arguments through — the other October bug was a wrapper silently dropping `"$@"`.)
+  blocks from the P2P network in lockstep. Building SHIT blocks (the current integration
+  path — see `INTEGRATION.md`) is a separate job: your block producer needs NEVM
+  templates from a local `sysgeth` run with `--nevmpub` as a template source, which is
+  not the same thing as full NEVM state validation inside `syscoind`. (If your wrapper
+  script launches sysgeth, make sure it passes arguments through — the other October
+  bug was a wrapper silently dropping `"$@"`.)
 - **Sync check:**
   ```
   syscoin-cli getblockchaininfo    # blocks == headers, verificationprogress ≈ 1
-  syscoin-cli createauxblock <your-shit-address>   # returns "chainid": 16, height = tip+1
+  syscoin-cli getblockhash <tip-height>   # cross-check the tip hash with a public explorer
   ```
-  If `createauxblock` errors, the node is not ready — do not fall back to building
-  blocks in pool software (that is exactly the Oct 12 failure mode).
+  Note: `createauxblock` currently errors on the production daemon
+  (`CreateNewBlock: TestBlockValidity failed: no-auxpow`). That is a known daemon issue
+  with a fix in progress — it does **not** mean your node is unready. The supported
+  integration path today is the opposite of the old warning: your pool software builds
+  the SHIT block itself and submits it with `submitblock` (see `INTEGRATION.md` and the
+  merge-mining integration guide). After submitting, always verify acceptance with
+  `getblockhash` — and remember SHIT coinbase outputs mature after 100 blocks.
 
 ## 2. Bitcoin node — Option A: new node with the fast snapshot
 

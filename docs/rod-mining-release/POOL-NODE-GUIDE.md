@@ -148,7 +148,7 @@ workers and shares. New miners start at difficulty 512.
 **What the pool pays (BTC):** **PPLNS** (you are paid when the pool finds a
 block, proportional to your recent shares). A **0.002% pool tax** is taken from
 every block's coinbase — that is the whole BTC fee. Payout runs are **hourly**
-in the pool software for balances of **0.001 BTC** or more.
+in the pool software for balances of **0.0005 BTC** or more.
 ⚠️ **Current status, stated plainly:** payouts are **not switched on yet**
 (`PAYOUTS_ENABLED=false` on the live pool). Balances accrue in the pool ledger,
 but nothing is paid out until the operator arms payouts. Check the dashboard
