@@ -39,112 +39,40 @@ void CheckAndWriteBudget(const CAmount& nSuperblockPayment, const CAmount& nPaym
 *
 *   Determine if coinbase outgoing created money is the correct value
 *
-*   Why is this needed?
-*   - In Syscoin some blocks are superblocks, which output much higher amounts of coins
-*   - Other blocks are lower in outgoing value, so in total, no extra coins are created
-*   - When non-superblocks are detected, the normal schedule should be maintained
+*   Superblocks are removed (consensus change). Historically, blocks at
+*   superblock heights could output much higher amounts of coins, paid as
+*   governance budget in the coinbase -- newly minted issuance on top of
+*   the block subsidy. That allowance no longer exists at any height:
+*   every block is held to the plain block-reward cap, where blockReward
+*   is GetBlockSubsidy (already net of the withheld 10%, which is never
+*   issued) plus the block's fees. No height, triggered superblock, or
+*   budget state grants any exception.
 */
 
 bool IsBlockValueValid(const CBlock& block, const CBlockIndex* pindex, const CAmount &blockReward, std::string& strErrorRet, bool fJustCheck, bool check_superblock)
 {
+    // Superblocks removed: the plain block-reward cap applies at EVERY
+    // height, including former superblock heights (multiples of the
+    // superblock cycle), before and after DIP0003Height alike. The
+    // governance budget machinery below this function historically granted
+    // an allowance of blockReward + a ratcheting budget (default
+    // 2,000,000 SHIT per cycle, up to 5,000,000) of extra minting in the
+    // superblock coinbase, accepted outright when masternode sync state
+    // was incomplete or superblock checking was skipped. None of those
+    // paths exist anymore: no triggered superblock, budget cache entry,
+    // or sync state can make a coinbase above blockReward valid.
+    // fJustCheck and check_superblock are retained in the signature for
+    // call-site compatibility and no longer affect the verdict.
     bool isBlockRewardValueMet = (block.vtx[0]->GetValueOut() <= blockReward);
     const int nBlockHeight = pindex->nHeight;
     strErrorRet = "";
-    
+
     LogPrint(BCLog::MNPAYMENTS, "block.vtx[0]->GetValueOut() %lld <= blockReward %lld\n", block.vtx[0]->GetValueOut(), blockReward);
-    if (!CSuperblock::IsValidBlockHeight(nBlockHeight)) {
-        // can't possibly be a superblock, so lets just check for block reward limits
-        if (!isBlockRewardValueMet) {
-            strErrorRet = strprintf("coinbase pays too much at height %d (actual=%d vs limit=%d), exceeded block reward, only regular blocks are allowed at this height",
-                            nBlockHeight, block.vtx[0]->GetValueOut(), blockReward);
-        }
-        return isBlockRewardValueMet;
+    if (!isBlockRewardValueMet) {
+        strErrorRet = strprintf("coinbase pays too much at height %d (actual=%d vs limit=%d), exceeded block reward, only regular blocks are allowed at this height",
+                        nBlockHeight, block.vtx[0]->GetValueOut(), blockReward);
     }
-    if(nBlockHeight < Params().GetConsensus().DIP0003Height) {
-        // Pre-DIP3 there are no masternodes or quorums, so no legitimate
-        // superblock payments can exist at superblock heights. Enforce the
-        // plain block-reward cap instead of accepting any amount.
-        if (!isBlockRewardValueMet) {
-            strErrorRet = strprintf("coinbase pays too much at height %d (actual=%d vs limit=%d), exceeded block reward, only regular blocks are allowed pre-DIP3",
-                            nBlockHeight, block.vtx[0]->GetValueOut(), blockReward);
-        }
-        return isBlockRewardValueMet;
-    }
-    const CAmount nSuperblockPayment = block.vtx[0]->GetValueOut() - blockReward;
-    int sbCycle = Params().GetConsensus().SuperBlockCycle(nBlockHeight);
-    int nLastSuperblock = nBlockHeight - sbCycle;
-    const CBlockIndex* nLastSBIndex = pindex->GetAncestor(nLastSuperblock);
-    const CAmount nPaymentLimit = CSuperblock::GetPaymentsLimit(nLastSBIndex);
-    // Initial thresholds
-    CAmount nGovernanceBudgetUp   = (nPaymentLimit * CSuperblock::SHIFT_UP)   / CSuperblock::SHIFT;
-    if (nGovernanceBudgetUp > CSuperblock::SUPERBLOCK_BUDGET_MAX) {
-        nGovernanceBudgetUp = CSuperblock::SUPERBLOCK_BUDGET_MAX;
-    }
-    
-    const CAmount nSuperblockMaxValue =  blockReward + nGovernanceBudgetUp;
-
-    bool isSuperblockMaxValueMet = block.vtx[0]->GetValueOut() <= nSuperblockMaxValue;
-    LogPrint(BCLog::GOBJECT, "block.vtx[0]->GetValueOut() %lld <= nSuperblockMaxValue %lld (nGovernanceBudgetUp %lld) nSuperblockPayment %lld\n", block.vtx[0]->GetValueOut(), nSuperblockMaxValue, nGovernanceBudgetUp, nSuperblockPayment);
-
-    // bail out in case superblock limits were exceeded
-    if (!isSuperblockMaxValueMet) {
-        strErrorRet = strprintf("coinbase pays too much at height %d (actual=%d vs limit=%d), exceeded superblock max value",
-                        nBlockHeight, block.vtx[0]->GetValueOut(), nSuperblockMaxValue);
-        return false;
-    }
-
-    if(!masternodeSync.IsSynced()) {
-        LogPrint(BCLog::MNPAYMENTS, "%s -- WARNING: Not enough data, checked superblock max bounds only\n", __func__);
-        // not enough data for full checks but at least we know that the superblock limits were honored.
-        // We rely on the network to have followed the correct chain in this case
-        // follow longest chain as IsValid() doesn't get to validate nSuperblockPayment via the superblock
-        if(!fJustCheck)
-            CheckAndWriteBudget(nSuperblockPayment, nPaymentLimit, nGovernanceBudgetUp, pindex);
-        return true;
-    }
-
-    // we are synced and possibly on a superblock now
-
-    if (!AreSuperblocksEnabled()) {
-        // should NOT allow superblocks at all, when superblocks are disabled
-        // revert to block reward limits in this case
-        LogPrint(BCLog::GOBJECT, "%s -- Superblocks are disabled, no superblocks allowed\n", __func__);
-        if(!isBlockRewardValueMet) {
-            strErrorRet = strprintf("coinbase pays too much at height %d (actual=%d vs limit=%d), exceeded block reward, superblocks are disabled",
-                            nBlockHeight, block.vtx[0]->GetValueOut(), blockReward);
-        }
-        return isBlockRewardValueMet;
-    }
-    if (!check_superblock) {
-        if(!fJustCheck)
-            CheckAndWriteBudget(nSuperblockPayment, nPaymentLimit, nGovernanceBudgetUp, pindex);
-        return true;
-    }
-    if (!CSuperblockManager::IsSuperblockTriggered(nBlockHeight)) {
-        // we are on a valid superblock height but a superblock was not triggered
-        // revert to block reward limits in this case
-        if(!isBlockRewardValueMet) {
-            strErrorRet = strprintf("coinbase pays too much at height %d (actual=%d vs limit=%d), exceeded block reward, no triggered superblock detected",
-                             nBlockHeight, block.vtx[0]->GetValueOut(), blockReward);
-        }
-        else if(!fJustCheck) {
-            CheckAndWriteBudget(nSuperblockPayment, nPaymentLimit, nGovernanceBudgetUp, pindex);
-        }
-        return isBlockRewardValueMet;
-    }
-    // this actually also checks for correct payees and not only amount
-    if (!CSuperblockManager::IsValidSuperblock(*block.vtx[0], nBlockHeight, blockReward, nGovernanceBudgetUp)) {
-        // triggered but invalid? that's weird
-        LogPrintf("%s -- ERROR: Invalid superblock detected at height %d: %s", __func__, nBlockHeight, block.vtx[0]->ToString()); /* Continued */
-        // should NOT allow invalid superblocks, when superblocks are enabled
-        strErrorRet = strprintf("invalid superblock detected at height %d", nBlockHeight);
-        return false;
-    }
-    // only store new limit if there was some governance
-    if(!fJustCheck)
-        CheckAndWriteBudget(nSuperblockPayment, nPaymentLimit, nGovernanceBudgetUp, pindex);
-    // we got a valid superblock
-    return true;
+    return isBlockRewardValueMet;
 }
 
 bool IsBlockPayeeValid(CChain& activeChain, const CTransaction& txNew, int nBlockHeight, const CAmount &blockReward, const CAmount &fees, CAmount& nMNSeniorityRet, CAmount& nMNFloorDiffRet)
