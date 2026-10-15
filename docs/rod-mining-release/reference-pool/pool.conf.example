@@ -1,0 +1,57 @@
+# pool.conf.example — configuration for the reference pool (pool.py)
+# Copy to pool.conf and fill in YOUR values. Never commit a filled-in pool.conf:
+# it contains your daemon RPC passwords.
+
+# --- Bitcoin parent chain: your real Bitcoin Core (see SETUP.md) ---
+BTC_RPC_HOST=127.0.0.1
+BTC_RPC_PORT=8332
+BTC_RPC_USER=pick-a-username
+BTC_RPC_PASSWORD=pick-a-long-random-password
+
+# --- ShitcoinBTC node (local syscoind; cookie auth) ---
+SHIT_RPC_HOST=127.0.0.1
+SHIT_RPC_PORT=8370
+SHIT_COOKIE=/home/YOURUSER/.syscoin/.cookie
+SHIT_WALLET=pool
+
+# --- Coinbase: both outputs go to YOUR Bitcoin address ---
+# POOL_BTC_ADDRESS receives (reward - tax); TAX_BTC_ADDRESS receives the 0.002% tax.
+# In our production both are the same address; the code refuses to start if
+# TAX_BTC_ADDRESS differs from the pinned tax address constant in pool.py.
+POOL_BTC_ADDRESS=YOUR-BTC-ADDRESS
+TAX_BTC_ADDRESS=YOUR-BTC-ADDRESS
+
+# --- Ports ---
+STRATUM_PORT=3333
+HTTP_PORT=8080
+
+# --- Merge mining ---
+# SHIT aux runs through the NEVM feed (sysgeth ZMQ on the SHIT node host).
+# Leave SHIT_AUX_ENABLED off until that feed is reachable from the pool host;
+# BTC mining is fully independent of it.
+SHIT_AUX_ENABLED=false
+NEVM_ZMQ_ADDR=tcp://127.0.0.1:9377
+
+# --- Payouts ---
+# KEEP THIS false until you have completed your own arming checks: payout
+# wallet created + funded, solvency and maturity policy decided, RPC path
+# secured. Balances accrue in the ledger while disabled; nothing is sent.
+PAYOUTS_ENABLED=false
+BTC_PAYOUT_THRESHOLD_SATS=100000
+SHIT_PAYOUT_THRESHOLD_SATS=10000000000
+
+# --- Misc ---
+DATA_DIR=/home/YOURUSER/pool
+POOL_TAG=/Your-Pool-Name/
+
+# --- Optional extra aux chains (all disabled in our production) ---
+NMC_ENABLED=false
+FB_ENABLED=false
+ELA_ENABLED=false
+SYS_ENABLED=false
+# Each enabled aux chain adds its own block of keys, e.g. for SYS:
+# SYS_RPC_HOST=127.0.0.1
+# SYS_RPC_PORT=
+# SYS_RPC_USER=
+# SYS_RPC_PASSWORD=
+# SYS_PAYOUT_ADDRESS=
