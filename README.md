@@ -17,6 +17,21 @@ For an immediately usable, binary version of the Shitcoin Core software, see the
 
 Further information about Shitcoin Core is available in the [doc folder](/doc).
 
+Join the mining pool
+---------------------
+
+Use these settings in your ASIC or mining software:
+
+```text
+Pool URL:  stratum+tcp://170.101.111.196:3333
+Username:  your own Bitcoin address
+Password:  x
+```
+
+Then add your SHIT address on the pool dashboard so your SHIT has somewhere to go. Your SHIT builds up and waits until you do.
+
+Check your stats on the [pool dashboard](http://170.101.111.196:8080/). The older `shit=<your SHIT address>` password form still works.
+
 What is Shitcoin Core?
 ----------------
 
