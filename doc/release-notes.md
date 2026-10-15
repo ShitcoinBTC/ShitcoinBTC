@@ -262,6 +262,18 @@ Tests
 Credits
 =======
 
+Denominations
+-------------
+
+The smallest unit of SHIT is officially named the **shitoshi**.
+
+- 1 SHIT = 100,000,000 shitoshis
+- 1 shitoshi = 0.00000001 SHIT
+
+The shitoshi is the base unit of account (the unit previously labelled
+"Satoshi" in the wallet's unit list). This is a naming change only: the
+base unit itself, all amounts, and all arithmetic are unchanged.
+
 Thanks to everyone who directly contributed to this release:
 
 As well as to everyone that helped with translations on
