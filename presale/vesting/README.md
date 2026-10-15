@@ -1,7 +1,7 @@
 # ShitVesting — SHIT-20 presale vesting vault
 
-Solidity vesting contract for the ShitcoinBtc NEVM sidechain (chain ID 57).
-Enforces the presale lock-up on-chain: **24 equal monthly unlocks per buyer, no cliff, linear**.
+Solidity vesting contract for the ShitcoinBtc NEVM sidechain (chain ID 20026).
+Enforces the presale lock-up on-chain: **12 equal monthly unlocks per buyer, no cliff, linear**.
 
 Buyer claims unlocked SHIT permissionlessly via `release()`; `releasable()` shows
 what's claimable right now. Schedules are non-revocable — once registered, only
@@ -11,14 +11,14 @@ time unlocks the funds.
 
 | Term | Value |
 |---|---|
-| Unlock schedule | 24 equal monthly tranches |
-| Cliff | none — first 1/24 unlocks 1 month after start |
-| Vesting math | `vested = total * min(elapsedMonths, 24) / 24` |
+| Unlock schedule | 12 equal monthly tranches |
+| Cliff | none — first 1/12 unlocks 1 month after start |
+| Vesting math | `vested = total * min(elapsedMonths, 12) / 12` |
 | Month length | 30 days |
 | Claim | permissionless, buyer calls `release()` themselves |
 
-Example: 24,000 SHIT starting 2026-10-01 → 1,000 SHIT claimable each month,
-fully unlocked after 24 months.
+Example: 24,000 SHIT starting 2026-10-01 → 2,000 SHIT claimable each month,
+fully unlocked after 12 months.
 
 ## Deploy
 
@@ -44,7 +44,7 @@ deployer key with NEVM gas funds.
    registerBatch(beneficiaries[], amounts[], start)
    ```
    - `amount` is in token base units (e.g. wei-style, 18 decimals).
-   - `start` is the unix timestamp the 24-month clock starts at — use the
+   - `start` is the unix timestamp the 12-month clock starts at — use the
      chain-launch timestamp for every buyer.
    - Registering an address twice **tops up** its schedule (same start kept).
 5. Verify the contract source on the NEVM explorer (phase-2 Blockscout).
@@ -65,7 +65,7 @@ deployer key with NEVM gas funds.
 - `release()` is reentrancy-guarded and follows checks-effects-interactions.
 - `sweep()` can only rescue *non*-SHIT tokens; vested SHIT can never be pulled by the owner.
 - Months are fixed 30-day periods, not calendar months — documented in the presale terms.
-- Integer division rounds down; the 24th unlock releases any dust remainder, so the full total is always claimable by month 24.
+- Integer division rounds down; the 12th unlock releases any dust remainder, so the full total is always claimable by month 12.
 - The contract trusts `block.timestamp` for unlock timing (standard for vesting; fine on a 30s-block chain).
 
 ## Files

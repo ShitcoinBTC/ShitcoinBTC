@@ -3,12 +3,12 @@ pragma solidity ^0.8.20;
 
 /**
  * @title ShitVesting
- * @notice SHIT-20 presale vesting vault for the ShitcoinBtc NEVM sidechain (chain ID 57).
+ * @notice SHIT-20 presale vesting vault for the ShitcoinBtc NEVM sidechain (chain ID 20026).
  *
  *         Presale terms enforced on-chain:
- *           - 24 equal monthly unlocks per beneficiary
- *           - No cliff: the first 1/24 unlocks one month after the schedule start
- *           - Linear: vested(t) = total * min(elapsedMonths, 24) / 24
+ *           - 12 equal monthly unlocks per beneficiary
+ *           - No cliff: the first 1/12 unlocks one month after the schedule start
+ *           - Linear: vested(t) = total * min(elapsedMonths, 12) / 12
  *
  *         The contract is ERC-20 compatible under the hood; the user-facing
  *         token standard branding is SHIT-20.
@@ -31,12 +31,12 @@ contract ShitVesting {
     struct Schedule {
         uint256 total;    // total SHIT allocated to this beneficiary
         uint256 released; // SHIT already claimed
-        uint64  start;    // unix timestamp the 24-month clock starts at
+        uint64  start;    // unix timestamp the 12-month clock starts at
         bool    exists;   // distinguishes "no schedule" from "zero schedule"
     }
 
     /// @notice Number of equal unlock tranches.
-    uint256 public constant PERIODS = 24;
+    uint256 public constant PERIODS = 12;
     /// @notice Length of one unlock period (30-day months).
     uint256 public constant PERIOD = 30 days;
 
@@ -109,7 +109,7 @@ contract ShitVesting {
      *      contract with enough SHIT to cover all registered schedules.
      * @param beneficiary Buyer address on the NEVM chain.
      * @param amount      SHIT amount (in token base units) to vest.
-     * @param start       Unix timestamp the 24-month clock starts at.
+     * @param start       Unix timestamp the 12-month clock starts at.
      */
     function register(address beneficiary, uint256 amount, uint64 start)
         external
