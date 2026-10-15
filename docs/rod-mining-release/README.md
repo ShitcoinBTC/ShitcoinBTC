@@ -14,6 +14,8 @@ was not emailed or sent by the team.**
 | `POOL-NODE-GUIDE.md` | The verified pool node guide (Bitcoin side), as published in the repo branch below |
 | `check-node.py` | Read-only checker for a Bitcoin node (verifies real mainnet identity, not just the chain name) |
 | `HANDOVER-SUMMARY.md` | One-page summary of the whole package |
+| `reference-pool/` | The complete reference pool implementation: production `pool.py` + `pool.conf.example` + its README |
+| `RELEASE-MANIFEST.md` | Every component of the release, what's in the push, what attaches at publish, and what an operator does not need |
 
 ## Exact versions and commits
 
