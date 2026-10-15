@@ -1,20 +1,21 @@
 #!/usr/bin/env python3
 """
-SHIT Pool - merge-mining stratum server (node2).
+SHIT Pool - merge-mining stratum server (reference implementation).
 
 Parent chain: Bitcoin (templates via getblocktemplate from node3 bitcoind).
 Aux chains:   SHIT (via local syscoind, gated on NEVM feed), NMC (config flag).
 
-Economics (Jodie's orders, do not change without him):
-  - 0.002% BTC tax in EVERY coinbase:  team_tax = coinbasevalue * 2 // 100000
-    paid to Jodie's P2SH 3FPSdy4dtNpMJxEnrhXMBEm3akEUY3Z592.
-    NEVER remove this output. NEVER pay any other team address.
+Economics (operator-configured in pool.conf - see pool.conf.example):
+  - 0.002% BTC tax in EVERY coinbase:  tax = coinbasevalue * 2 // 100000,
+    paid to the Bitcoin address YOU set as TAX_BTC_ADDRESS.
+    POOL_BTC_ADDRESS receives the rest. Both addresses are required,
+    must be your own, and may be the same address.
   - PPLNS accounting. 1% pool fee on merged-coin (SHIT/NMC) rewards at
     accounting time. No fee on BTC beyond the coinbase tax.
 
 Payouts are DISABLED by default (PAYOUTS_ENABLED=false): the engine runs in
-dry-run and only logs what it would pay. No funds move without Jodie's approval
-of the payout service.
+dry-run and only logs what it would pay. No funds move until the operator
+deliberately arms the payout service.
 """
 
 import base64
@@ -49,8 +50,8 @@ DEFAULTS = {
     "SHIT_RPC_PORT": "8370",
     "SHIT_COOKIE": "/home/shitcoin/.syscoin/.cookie",
     "SHIT_WALLET": "pool",
-    "POOL_BTC_ADDRESS": "3FPSdy4dtNpMJxEnrhXMBEm3akEUY3Z592",  # default: Jodie's P2SH (safe: funds can't be lost)
-    "TAX_BTC_ADDRESS": "3FPSdy4dtNpMJxEnrhXMBEm3akEUY3Z592",    # Jodie's wallet - DO NOT CHANGE
+    "POOL_BTC_ADDRESS": "",  # REQUIRED in pool.conf: YOUR Bitcoin address (receives reward - tax)
+    "TAX_BTC_ADDRESS": "",   # REQUIRED in pool.conf: YOUR Bitcoin address (receives the 0.002% tax; may equal POOL_BTC_ADDRESS)
     "STRATUM_PORT": "3333",
     "HTTP_PORT": "8080",
     "NMC_ENABLED": "false",
@@ -330,9 +331,9 @@ def valid_shit_address(addr: str) -> bool:
         return False
 
 
-# Jodie's P2SH tax output scriptPubKey (OP_HASH160 <20B> OP_EQUAL).
-# Address 3FPSdy4dtNpMJxEnrhXMBEm3akEUY3Z592. DO NOT CHANGE.
-TEAM_BTC_SPK = bytes.fromhex("a914963ee76ef44ebb777e435b352314d35368684de887")
+# The tax output scriptPubKey is derived at startup from the operator's
+# own TAX_BTC_ADDRESS (see PoolState.__init__). This reference copy pins
+# no project address: your coinbase tax goes to your own address.
 
 # ------------------------------------------------------------------- RPC ---
 
@@ -1168,7 +1169,7 @@ class Job:
         outputs = [
             (0, b"\x6a" + bytes([len(tag)]) + tag),
             (pool_reward, pool_spk),
-            (tax_sats, team_spk),   # <-- Jodie's 0.002% tax output. NEVER remove.
+            (tax_sats, team_spk),   # <-- 0.002% tax output to TAX_BTC_ADDRESS
             (0, wit_spk),
         ]
         out_bin = b""
@@ -1247,10 +1248,16 @@ class PoolState:
         self._last_aux_fp = None          # aux fingerprint of current job
         self.shit_aux_state = "unknown"   # unknown|waiting|ready
         self.shit_aux_reason = ""
+        if not valid_btc_address(CFG["POOL_BTC_ADDRESS"]):
+            raise SystemExit(
+                "POOL_BTC_ADDRESS is not a valid Bitcoin address - set YOUR "
+                "address in pool.conf (see pool.conf.example)")
+        if not valid_btc_address(CFG["TAX_BTC_ADDRESS"]):
+            raise SystemExit(
+                "TAX_BTC_ADDRESS is not a valid Bitcoin address - set YOUR "
+                "address in pool.conf (see pool.conf.example)")
         self.pool_spk = btc_address_to_spk(CFG["POOL_BTC_ADDRESS"])
-        self.team_spk = TEAM_BTC_SPK
-        assert CFG["TAX_BTC_ADDRESS"] == "3FPSdy4dtNpMJxEnrhXMBEm3akEUY3Z592", \
-            "tax address changed without Jodie's order - refusing to start"
+        self.team_spk = btc_address_to_spk(CFG["TAX_BTC_ADDRESS"])
         self.tag = CFG["POOL_TAG"].encode()[:32]
 
     def poll(self):
@@ -2743,15 +2750,17 @@ def selftest():
         assert root == merkle_root([cb] + txids), \
             "merkle branch mismatch with %d txs" % n
     print("merkle_branch OK (0..7 txs)")
-    # address decode
-    spk = btc_address_to_spk("3FPSdy4dtNpMJxEnrhXMBEm3akEUY3Z592")
-    assert spk == TEAM_BTC_SPK, "tax spk mismatch: %s" % spk.hex()
+    # address decode - BIP173 published example address (witness program
+    # 751e76e8199196d454941c45d1b3a323f1433bd6); a test vector, not a wallet
+    spk = btc_address_to_spk("bc1qw508d6qejxtdg4y5r3zarvary0c5xw7kv8f3t4")
+    assert spk == bytes.fromhex("0014751e76e8199196d454941c45d1b3a323f1433bd6"), \
+        "bech32 spk mismatch: %s" % spk.hex()
     assert valid_btc_address("bc1qw508d6qejxtdg4y5r3zarvary0c5xw7kv8f3t4")
     assert not valid_btc_address("notanaddress")
     # scope I: testnet bech32 rejected; taproot accepted (harness
     # verifies the P2TR script byte-for-byte with an independent encoder)
     assert not valid_btc_address("tb1qw508d6qejxtdg4y5r3zarvary0c5xw7kg3g4ty")
-    print("address decode OK (tax spk pinned)")
+    print("address decode OK")
     # scope E/J/F helpers
     assert valid_shit_address("shit1qkh0zzuxyxnn2lzhezvd3vrgrqw38fa2ej8nmun")
     assert not valid_shit_address("NOT-A-REAL-ADDRESS!!!")
@@ -2771,12 +2780,13 @@ def selftest():
             "transactions": []}
     aux = [("SHIT", {"hash_hex": "ab" * 32, "bits": 0x1d00ffff,
                      "target": 2 ** 224, "height": 69000})]
-    pool_spk = TEAM_BTC_SPK
+    pool_spk = spk
+    tax_spk = spk
     tax = 312500000 * 2 // 100000
     assert tax == 6250, "tax math wrong: %d" % tax
-    job = Job(tmpl, aux, pool_spk, TEAM_BTC_SPK, tax, b"/SHIT-Pool/")
+    job = Job(tmpl, aux, pool_spk, tax_spk, tax, b"/SHIT-Pool/")
     # tax output present?
-    assert (struct.pack("<q", tax) + bytes([len(TEAM_BTC_SPK)]) + TEAM_BTC_SPK) in job.coinb2, \
+    assert (struct.pack("<q", tax) + bytes([len(tax_spk)]) + tax_spk) in job.coinb2, \
         "TAX OUTPUT MISSING FROM COINBASE"
     assert MM_MAGIC in job.coinb2, "merged-mining header missing"
     print("job build OK (tax=%d sats output present)" % tax)
@@ -2799,7 +2809,7 @@ def main():
         return selftest()
     db_init()
     log("=== SHIT Pool starting ===")
-    log("tax: 0.002%% of every BTC coinbase -> %s (DO NOT REMOVE)"
+    log("tax: 0.002%% of every BTC coinbase -> %s (operator-configured)"
         % CFG["TAX_BTC_ADDRESS"])
     # timeout=30 + bounded retries (scope A): node3 bitcoind under
     # assumeutxo background validation routinely answers in 5-35 s

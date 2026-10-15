@@ -14,7 +14,7 @@ this repo line.
 | Real-Bitcoin mining guide + node checker | commits `8b9cdb0`, `db13618` (`contrib/mining/`) | ✅ staged |
 | `src/mine.sh` regtest guard; getwork wrapper test-only marking; README mining section | commits `8c2835d`, `45fcc08`, `643c124` | ✅ staged |
 | Operator package (README/versions, SETUP, INTEGRATION, UPGRADE, ROOT-CAUSE-NOTE, HANDOVER-SUMMARY, POOL-NODE-GUIDE, check-node.py, RELEASE-NOTES-DRAFT) | `docs/rod-mining-release/` | ✅ staged |
-| **Reference pool implementation** — the production pool software (`pool.py`, sha256 `1d15b29a…09ce`, byte-identical to the deployed build), sanitized `pool.conf.example` (all keys, placeholder values — no live credentials), reference-pool README | `docs/rod-mining-release/reference-pool/` | ✅ staged |
+| **Reference pool implementation** — the production pool software as a reference copy (`pool.py`, sha256 `c62401c35252f153f7ef529edaa5d72b9728f74cbe6afa5a6bdaee854936e34b` — deployed stratum/accounting/payout logic; publication-only configuration differences: localhost RPC defaults with placeholder credentials, and operator-set coinbase payout/tax addresses, no pinned project address), sanitized `pool.conf.example` (all keys, placeholder values — no live credentials), reference-pool README | `docs/rod-mining-release/reference-pool/` | ✅ staged |
 
 ## Attached at publish time (GitHub release assets — not git-tree files)
 

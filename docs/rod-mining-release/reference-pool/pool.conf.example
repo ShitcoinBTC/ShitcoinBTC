@@ -14,10 +14,11 @@ SHIT_RPC_PORT=8370
 SHIT_COOKIE=/home/YOURUSER/.syscoin/.cookie
 SHIT_WALLET=pool
 
-# --- Coinbase: both outputs go to YOUR Bitcoin address ---
+# --- Coinbase: both outputs go to YOUR Bitcoin addresses ---
 # POOL_BTC_ADDRESS receives (reward - tax); TAX_BTC_ADDRESS receives the 0.002% tax.
-# In our production both are the same address; the code refuses to start if
-# TAX_BTC_ADDRESS differs from the pinned tax address constant in pool.py.
+# Both are REQUIRED and must be addresses YOU control: pool.py refuses to
+# start until both are set to valid Bitcoin addresses. Setting both to the
+# same address is fine - the coinbase then lands in one wallet, as two outputs.
 POOL_BTC_ADDRESS=YOUR-BTC-ADDRESS
 TAX_BTC_ADDRESS=YOUR-BTC-ADDRESS
 

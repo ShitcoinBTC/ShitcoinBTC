@@ -14,7 +14,7 @@ was not emailed or sent by the team.**
 | `POOL-NODE-GUIDE.md` | The verified pool node guide (Bitcoin side), as published in the repo branch below |
 | `check-node.py` | Read-only checker for a Bitcoin node (verifies real mainnet identity, not just the chain name) |
 | `HANDOVER-SUMMARY.md` | One-page summary of the whole package |
-| `reference-pool/` | The complete reference pool implementation: production `pool.py` + `pool.conf.example` + its README |
+| `reference-pool/` | The complete reference pool implementation: `pool.py` (reference configuration — set your own payout/tax addresses) + `pool.conf.example` + its README |
 | `RELEASE-MANIFEST.md` | Every component of the release, what's in the push, what attaches at publish, and what an operator does not need |
 
 ## Exact versions and commits
@@ -40,9 +40,9 @@ master `984349c`):
 - `db1361830c95e308917baca38ce79a2f34d0374f` — verified pool node setup guide + checker (independent
   verification fixes F1–F4 applied and re-tested live)
 
-**Honest publication status:** these five commits are currently on a **local branch**; the
-GitHub push goes through the project's normal token process and had not happened when this
-package was prepared. The files in this package are byte-identical to the branch contents
+**Honest publication status:** these five commits are published on this branch
+(`release/rod-mining-2026-10-14-clean`) in the public repo. (When this package was
+first prepared on 2026-10-14, the push had not yet happened.) The files in this package are byte-identical to the branch contents
 (`check-node.py` sha256 `b0f2a373404ea678b379bb9f35f7793bd991dc8b6b2669566beee3de0dc2f1f0`,
 verified identical in the branch, the working cell copy, and this package).
 
