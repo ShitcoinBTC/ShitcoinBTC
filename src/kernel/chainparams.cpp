@@ -208,11 +208,12 @@ public:
         consensus.nPODAStartBlock = 1586000;
         consensus.nV19StartBlock = 1586000;
         consensus.nNexusStartBlock = 2010345;
-        // PROPOSED activation height for the standalone coinbase value cap.
-        // Jodie must confirm this exact height before anything deploys.
-        // Live height was 68647 at patch time; 71000 gives ~14-20h of
-        // coordinated-upgrade headroom at observed block pacing.
-        consensus.nCoinbaseCapStartBlock = 71000;
+        // Activation height for the standalone coinbase value cap.
+        // Decision 1, Option B (Jodie, 2026-10-15): the whole fork is gated
+        // at 85,000 (supersedes the 71,000 ratification option). Enforcement
+        // begins with the first block at or above this height; every height
+        // below it is judged exactly as before this fork.
+        consensus.nCoinbaseCapStartBlock = 85000;
         consensus.DIP0003Height = 1004200;
         consensus.DIP0003EnforcementHeight = 1004200;
         /**
