@@ -25,16 +25,16 @@ Use these settings in your ASIC or mining software:
 ```text
 Pool URL:  stratum+tcp://170.101.111.196:3333
 Username:  your own Bitcoin address (.worker optional, for example .rig1)
-Password:  x
+Password:  your SHIT address (or x if you only want Bitcoin)
 ```
 
-Set your SHIT address on the pool dashboard with a signed message from your Bitcoin address, and your SHIT builds up and waits until you do.
+Putting your SHIT address in the password field registers it when your miner connects. The first SHIT address registered wins, and reconnecting can never replace it. If the password is x, or anything that is not a valid SHIT address, no address is registered and your SHIT builds up and waits. The signed message form on the pool dashboard is now only for changing an address that is already on file.
 
-Use a Bitcoin address from a wallet you control and can sign with: exchange addresses and Taproot (bc1p) addresses cannot complete the SHIT address step.
+Taproot (bc1p) and exchange Bitcoin addresses can register a SHIT address in the password field like everyone else, but they cannot sign a message, so an address registered for them cannot be changed later.
 
 Check your stats on the [pool dashboard](http://170.101.111.196:8080/).
 
-Renting hash? Use host 170.101.111.196 on port 3334 instead of 3333 (starts at difficulty 1,048,576; you can pin a difficulty with password `d=<diff>`). Port 3333 stays the general port.
+Renting hash? Use host 170.101.111.196 on port 3334 instead of 3333 (starts at difficulty 1,048,576), with the same password recipe: your SHIT address registers on connect. If you pin a difficulty with password `d=<diff>` instead, no SHIT address is registered and your SHIT builds up and waits. Port 3333 stays the general port.
 
 Payouts are PPLNS and run hourly, starting over 0.0005 BTC and 100 SHIT. Pool fee: 0.002 percent of Bitcoin block rewards, and 1 percent of merge-mined SHIT.
 
