@@ -30,7 +30,11 @@ Password:  x
 
 Set your SHIT address on the pool dashboard with a signed message from your Bitcoin address, and your SHIT builds up and waits until you do.
 
-Check your stats on the [pool dashboard](http://170.101.111.196:8080/). The older `shit=<your SHIT address>` password form still works.
+Use a Bitcoin address from a wallet you control and can sign with: exchange addresses and Taproot (bc1p) addresses cannot complete the SHIT address step.
+
+Check your stats on the [pool dashboard](http://170.101.111.196:8080/).
+
+Renting hash? Use host 170.101.111.196 on port 3334 instead of 3333 (starts at difficulty 1,048,576; you can pin a difficulty with password `d=<diff>`). Port 3333 stays the general port.
 
 Payouts are PPLNS and run hourly, starting over 0.0005 BTC and 100 SHIT. Pool fee: 0.002 percent of Bitcoin block rewards, and 1 percent of merge-mined SHIT.
 
