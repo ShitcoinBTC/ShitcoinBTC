@@ -24,13 +24,15 @@ Use these settings in your ASIC or mining software:
 
 ```text
 Pool URL:  stratum+tcp://170.101.111.196:3333
-Username:  your own Bitcoin address
+Username:  your own Bitcoin address (.worker optional, for example .rig1)
 Password:  x
 ```
 
-Then add your SHIT address on the pool dashboard so your SHIT has somewhere to go. Your SHIT builds up and waits until you do.
+Set your SHIT address on the pool dashboard with a signed message from your Bitcoin address, and your SHIT builds up and waits until you do.
 
 Check your stats on the [pool dashboard](http://170.101.111.196:8080/). The older `shit=<your SHIT address>` password form still works.
+
+Payouts are PPLNS and run hourly, starting over 0.0005 BTC and 100 SHIT. Pool fee: 0.002 percent of Bitcoin block rewards, and 1 percent of merge-mined SHIT.
 
 What is Shitcoin Core?
 ----------------
