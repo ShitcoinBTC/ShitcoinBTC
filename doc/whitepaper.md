@@ -339,15 +339,19 @@ block's 50 SHIT is unspendable, as is tradition.
   lifetime mining lands on the 9.03B allocation - a century of rewards for
   merge-mining Bitcoin, covering Bitcoin's entire subsidy era (to around 2140)
   and then some.
-- **Reward split (per block):** 10% goes to the governance superblock. Of the
-  remaining 90%: 25% to miners (merge-mined, Section 2), 75% to masternodes.
-  Half of all transaction fees go to masternodes too.
+- **Reward split (per block):** until block 85,000, 10% of the subsidy was
+  set aside for the governance superblock. From block 85,000 that 10% slice
+  is **never issued**: consensus withholds it at creation, permanently, and
+  the superblock payout machinery is removed, so it can never be minted by
+  anyone. The block reward from 85,000 is the net subsidy - 178.26466861
+  SHIT per block at the current decay step.
 - **Masternodes.** 100,000 SHIT collateral, DIP-3 deterministic registration.
   They run the quorum services: ChainLocks (instant finality), Shitbridge
   relaying, governance voting.
-- **Governance.** Monthly superblocks fund whatever masternodes vote for -
-  bridge deployments, EVM updates, lottery tweaks, marketing. Vault yield
-  doesn't need governance: consensus mints it automatically inside the caps.
+- **Governance.** Superblock payouts are abolished from block 85,000 (see
+  the reward split above): no consensus funds are disbursed by masternode
+  vote. Vault yield doesn't need governance: consensus mints it
+  automatically inside the caps.
 - **Burns.** The lottery's 10%-per-round burn and the EVM vault's 10%
   early-exit penalty are the deflationary sinks. Both only ever push circulating
   supply further *below* the 21B cap.
