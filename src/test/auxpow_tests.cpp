@@ -679,7 +679,7 @@ BOOST_FIXTURE_TEST_CASE (auxpow_chainid_fork_boundary, BasicTestingSetup)
      chain-ID bits left behind -- for ID 29 (multiple bits set) as well
      as for ID 16. */
   for (const int32_t chainId : {16, 29}) {
-      const int32_t ver = 2 | (chainId << 16) | CPureBlockHeader::VERSION_AUXPOW;
+      const int32_t ver = 2 | (chainId << 16) | (1 << 8); // VERSION_AUXPOW (private in CPureBlockHeader)
       BOOST_CHECK_EQUAL (CPureBlockHeader::GetChainId (ver), chainId);
       BOOST_CHECK_EQUAL (CPureBlockHeader::GetBaseVersion (ver), 2);
   }
