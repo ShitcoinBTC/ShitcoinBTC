@@ -1876,7 +1876,7 @@ bool CheckProofOfWork(const CBlockHeader& block, const Consensus::Params& params
     const int32_t nChainID = block.GetChainId();
     if (!block.IsLegacy() && params.fStrictChainId) {
         if(nChainID > 0) {
-            if(nChainID != params.nAuxpowChainId)
+            if(nChainID != params.nAuxpowChainId && nChainID != params.nAuxpowNewChainId)
                 return error("%s : block does not have our chain ID"
                         " (got %d, expected %d, full nVersion %d)",
                         __func__, nChainID,
@@ -4849,6 +4849,19 @@ static bool ContextualCheckBlockHeader(const CBlockHeader& block, BlockValidatio
                   __func__, nHeight);
         return state.Invalid(BlockValidationResult::BLOCK_INVALID_HEADER, "no-auxpow");
     }
+    // Auxpow chain-ID fork: from nAuxpowChainIdForkHeight the header must
+    // carry nAuxpowNewChainId; before it, nAuxpowChainId. (The height-free
+    // checks in CheckProofOfWork/CAuxPow::check accept either ID; the exact
+    // era is enforced only here, where the height is known.)
+    if (fCheckAuxPoW && consensusParams.fStrictChainId && block.IsAuxpow()) {
+        const int32_t nExpectedChainId = consensusParams.GetAuxpowChainId(nHeight);
+        if (block.GetChainId() != nExpectedChainId) {
+            return state.Invalid(BlockValidationResult::BLOCK_INVALID_HEADER,
+                                 "bad-chainid",
+                                 strprintf("block has chain ID %d, expected %d at height %d",
+                                           block.GetChainId(), nExpectedChainId, nHeight));
+        }
+    }
     if (block.nBits != GetNextWorkRequired(pindexPrev, &block, consensusParams))
         return state.Invalid(BlockValidationResult::BLOCK_INVALID_HEADER, "bad-diffbits", "incorrect proof of work");
 
@@ -4889,7 +4902,7 @@ static bool ContextualCheckBlockHeader(const CBlockHeader& block, BlockValidatio
         (baseVer < 3 && nHeight >= consensusParams.BIP66Height) ||
         (baseVer < 4 && nHeight >= consensusParams.BIP65Height) ||
         !CPureBlockHeader::IsValidBaseVersion(baseVer) ||
-        (nChainID > 0 && nChainID != consensusParams.nAuxpowChainId)))
+        (nChainID > 0 && nChainID != consensusParams.GetAuxpowChainId(nHeight))))
                 return state.Invalid(BlockValidationResult::BLOCK_INVALID_HEADER, strprintf("bad-version(0x%08x)", baseVer),
                                     strprintf("rejected nVersion=0x%08x block", block.nVersion));
     } else {

@@ -42,7 +42,7 @@ bool CAuxPow::check (const uint256& hashAuxBlock, int nChainId,
     if (params.fStrictChainId) {
         const int32_t nChainIDParent = parentBlock.GetChainId();
         if(nChainIDParent > 0) {
-            if(nChainIDParent == params.nAuxpowChainId)
+            if(nChainIDParent == params.nAuxpowChainId || nChainIDParent == params.nAuxpowNewChainId)
                 return error("Aux POW parent has our chain ID");
         } else {
             const int32_t nOldChainIDParent = parentBlock.GetOldChainId();

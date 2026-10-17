@@ -311,6 +311,20 @@ struct Params {
     int32_t nAuxpowOldChainId;
     int nAuxpowStartHeight;
     bool fStrictChainId;
+    /** Auxpow chain-ID hard fork (v5.0.7): blocks at or above
+     * nAuxpowChainIdForkHeight must carry nAuxpowNewChainId in the header
+     * version instead of nAuxpowChainId. nAuxpowChainId remains the ID for
+     * all earlier heights (and the value testnet/regtest keep when no fork
+     * is scheduled there). */
+    int32_t nAuxpowNewChainId{0};
+    int nAuxpowChainIdForkHeight{std::numeric_limits<int>::max()};
+
+    /** The auxpow chain ID a block at nHeight must carry. */
+    int32_t GetAuxpowChainId(int nHeight) const
+    {
+        return nHeight >= nAuxpowChainIdForkHeight ? nAuxpowNewChainId
+                                                   : nAuxpowChainId;
+    }
     int nLegacyBlocksBefore; // -1 for "always allow"
 
      /**

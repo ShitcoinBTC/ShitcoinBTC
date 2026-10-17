@@ -171,6 +171,8 @@ public:
         consensus.nPowTargetSpacing = 30; // Shitcoin: 30 seconds
         consensus.nAuxpowChainId = 16;
         consensus.nAuxpowOldChainId = 4096;
+        consensus.nAuxpowNewChainId = 29;
+        consensus.nAuxpowChainIdForkHeight = 88000;
         consensus.nAuxpowStartHeight = 1;
         consensus.fPowAllowMinDifficultyBlocks = false;
         consensus.fPowNoRetargeting = false;
@@ -342,6 +344,7 @@ public:
         consensus.nAuxpowStartHeight = 1;
         consensus.nAuxpowChainId = 8;
         consensus.nAuxpowOldChainId = 4096;
+        consensus.nAuxpowNewChainId = 8;
         consensus.fStrictChainId = false;
         consensus.nLegacyBlocksBefore = 1;
         consensus.nSYSXAsset = 123456;
@@ -585,6 +588,8 @@ public:
         consensus.nAuxpowStartHeight = 0;
         consensus.nAuxpowChainId = 16;
         consensus.nAuxpowOldChainId = 4096;
+        consensus.nAuxpowNewChainId = 29;
+        consensus.nAuxpowChainIdForkHeight = 100;
         consensus.fStrictChainId = true;
         consensus.nLegacyBlocksBefore = 0;
         consensus.nSYSXAsset = 123456;

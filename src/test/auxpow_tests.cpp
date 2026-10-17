@@ -292,6 +292,9 @@ BOOST_FIXTURE_TEST_CASE (check_auxpow, BasicTestingSetup)
   BOOST_CHECK (builder2.get ().check (hashAux, ourChainId, params));
   builder2.parentBlock.SetChainId (ourChainId);
   BOOST_CHECK (!builder2.get ().check (hashAux, ourChainId, params));
+  /* The post-fork ID is also "ours": a parent claiming it is a spoof too. */
+  builder2.parentBlock.SetChainId (params.nAuxpowNewChainId);
+  BOOST_CHECK (!builder2.get ().check (hashAux, ourChainId, params));
   // without auxpow parent have whatever it wants in those chain id bits
   builder2.parentBlock.SetAuxpowVersion (false);
   BOOST_CHECK (builder2.get ().check (hashAux, ourChainId, params));
@@ -442,10 +445,24 @@ BOOST_FIXTURE_TEST_CASE (auxpow_pow, BasicTestingSetup)
   mineBlock (block, true);
   BOOST_CHECK (HasValidProofOfWork({block}, params));
 
-  block.SetChainId (params.nAuxpowChainId + 1);
+  /* Wrong chain ID: must be neither the pre-fork ID (16 on regtest) nor
+     the post-fork ID (29, nAuxpowNewChainId). The old test used
+     nAuxpowChainId + 1 (= 17), which is dangerously close to the fork
+     design; 31 is neither 16 nor 29, so it stays unambiguously wrong
+     under the dual-accept height-free check. */
+  block.SetChainId (31);
   block.SetAuxpowVersion (true);
   mineBlock (block, true);
   BOOST_CHECK (!HasValidProofOfWork({block}, params));
+
+  /* Dual-accept: the post-fork ID (29) is also accepted by the
+     height-free HasValidProofOfWork check. Era-exactness (which ID is
+     required at which height) is enforced only in
+     ContextualCheckBlockHeader, where the height is known. */
+  block.SetChainId (params.nAuxpowNewChainId);
+  block.SetAuxpowVersion (true);
+  mineBlock (block, true);
+  BOOST_CHECK (HasValidProofOfWork({block}, params));
 
   /* Check the case when the block does not have auxpow (this is true
      right now).  */
@@ -613,5 +630,59 @@ BOOST_FIXTURE_TEST_CASE (auxpow_miner_createAndLookupBlock, TestChain100Setup)
 }
 
 /* ************************************************************************** */
+
+/* ************************************************************************** */
+
+/* Era-boundary coverage for the v5.0.7 auxpow chain-ID fork: the
+   height-free helper GetAuxpowChainId must return the old ID below the
+   fork height and the new ID at/above it, on every network, and the
+   version encode/decode round-trip must be clean for both eras
+   (in particular GetBaseVersion must strip the full 5-bit chain-ID
+   mask, not just the bits of ID 16). */
+BOOST_FIXTURE_TEST_CASE (auxpow_chainid_fork_boundary, BasicTestingSetup)
+{
+  /* Mainnet: 16 below 88000, 29 at/above 88000. */
+  SelectParams (ChainType::MAIN);
+  {
+      const Consensus::Params& mainParams = Params ().GetConsensus ();
+      BOOST_CHECK_EQUAL (mainParams.nAuxpowChainId, 16);
+      BOOST_CHECK_EQUAL (mainParams.nAuxpowNewChainId, 29);
+      BOOST_CHECK_EQUAL (mainParams.nAuxpowChainIdForkHeight, 88000);
+      BOOST_CHECK_EQUAL (mainParams.GetAuxpowChainId (87999), 16);
+      BOOST_CHECK_EQUAL (mainParams.GetAuxpowChainId (88000), 29);
+      BOOST_CHECK_EQUAL (mainParams.GetAuxpowChainId (88001), 29);
+  }
+
+  /* Regtest: 16 below 100, 29 at/above 100. */
+  SelectParams (ChainType::REGTEST);
+  {
+      const Consensus::Params& regParams = Params ().GetConsensus ();
+      BOOST_CHECK_EQUAL (regParams.nAuxpowChainId, 16);
+      BOOST_CHECK_EQUAL (regParams.nAuxpowNewChainId, 29);
+      BOOST_CHECK_EQUAL (regParams.nAuxpowChainIdForkHeight, 100);
+      BOOST_CHECK_EQUAL (regParams.GetAuxpowChainId (99), 16);
+      BOOST_CHECK_EQUAL (regParams.GetAuxpowChainId (100), 29);
+  }
+
+  /* Testnet: no-op -- new ID equals old ID (8), fork never fires. */
+  SelectParams (ChainType::TESTNET);
+  {
+      const Consensus::Params& testParams = Params ().GetConsensus ();
+      BOOST_CHECK_EQUAL (testParams.nAuxpowChainId, 8);
+      BOOST_CHECK_EQUAL (testParams.nAuxpowNewChainId, 8);
+      BOOST_CHECK_EQUAL (testParams.GetAuxpowChainId (0), 8);
+      BOOST_CHECK_EQUAL (testParams.GetAuxpowChainId (1000000), 8);
+  }
+
+  /* Version round-trip for both eras: GetChainId decodes the stamped
+     ID, and GetBaseVersion returns the clean base version (2) with no
+     chain-ID bits left behind -- for ID 29 (multiple bits set) as well
+     as for ID 16. */
+  for (const int32_t chainId : {16, 29}) {
+      const int32_t ver = 2 | (chainId << 16) | CPureBlockHeader::VERSION_AUXPOW;
+      BOOST_CHECK_EQUAL (CPureBlockHeader::GetChainId (ver), chainId);
+      BOOST_CHECK_EQUAL (CPureBlockHeader::GetBaseVersion (ver), 2);
+  }
+}
 
 BOOST_AUTO_TEST_SUITE_END ()

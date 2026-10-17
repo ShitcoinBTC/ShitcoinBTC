@@ -28,7 +28,7 @@ void CPureBlockHeader::SetOldBaseVersion(int32_t nBaseVersion, const int32_t &nC
 int32_t CPureBlockHeader::GetBaseVersion(const int32_t &ver) 
 {
     // remove AuxPow flag and Chain ID
-    return (ver & ~VERSION_AUXPOW) & ~VERSION_AUXPOW_CHAINID_SHIFTED;
+    return (ver & ~VERSION_AUXPOW) & ~MASK_AUXPOW_CHAINID_SHIFTED;
 }
 
 int32_t CPureBlockHeader::GetOldBaseVersion(const int32_t &ver)
