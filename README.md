@@ -17,6 +17,26 @@ For an immediately usable, binary version of the Shitcoin Core software, see the
 
 Further information about Shitcoin Core is available in the [doc folder](/doc).
 
+Current release and chain facts
+-------------------------------
+
+- **Current public release: v5.0.7**, published on GitHub on 2026-10-17.
+  The `syscoind` file in that release has a SHA256 checksum beginning
+  `df27b410` (`df27b4101ea92ecb4bff73ed028e6da6a00492c62573d818605897c6129475cf`).
+  Check your download against `SHA256SUMS.txt` from the same release
+  before you install it.
+- v5.0.8 and v5.0.9 are not public releases. They run only on internal
+  nodes. Operators should run v5.0.7, not v5.0.8 or v5.0.9.
+- **AuxPoW chain ID: 29.** This changed at block 88,000 on 2026-10-18.
+  It was 16 before block 88,000. Since the change, SHIT and SYS can
+  share one merge-mining tree under Bitcoin as the real parent chain.
+- **NEVM chain ID: 20026.** This is a different number from the AuxPoW
+  chain ID. Do not confuse them: 29 is the AuxPoW chain ID for merged
+  mining, 20026 is the chain ID for NEVM smart contracts and wallets.
+- **Starting sysgeth:** sysgeth must be started with
+  `--nevmpub tcp://127.0.0.1:9377`. Without that flag, NEVM blocks
+  fail with `nevm-data-not-found`.
+
 Join the mining pool
 ---------------------
 
@@ -34,6 +54,14 @@ Taproot (bc1p) and exchange Bitcoin addresses can register a SHIT address in the
 
 Check your stats on the [pool dashboard](http://170.101.111.196:8080/).
 
+Pool operators running the stratum proxy: use the current proxy file
+from [contrib/pool-onboarding/](contrib/pool-onboarding/). It was
+updated on the morning of the block 88,000 fork so it stamps AuxPoW
+chain ID 16 below block 88,000 and chain ID 29 at block 88,000 and
+above. The current server proxy file has a SHA256 checksum beginning
+`d5379a47` (`d5379a475e4b6c544fa55b97866388fda47b064687edfb7a07c8ca733c3416a3`).
+See the pool onboarding README for the update and check steps.
+
 Renting hash? Use host 170.101.111.196 on port 3334 instead of 3333 (starts at difficulty 1,048,576), with the same password recipe: your SHIT address registers on connect. If you pin a difficulty with password `d=<diff>` instead, no SHIT address is registered and your SHIT builds up and waits. Port 3333 stays the general port.
 
 Payouts are PPLNS and run hourly, starting over 0.0005 BTC and 100 SHIT. Pool fee: 0.002 percent of Bitcoin block rewards, and 1 percent of merge-mined SHIT.
@@ -41,7 +69,7 @@ Payouts are PPLNS and run hourly, starting over 0.0005 BTC and 100 SHIT. Pool fe
 What is Shitcoin Core?
 ----------------
 
-Shitcoin Core is an experimental digital currency that enables instant payments to anyone, anywhere in the world. SHIT uses peer-to-peer technology to operate with no central authority: managing transactions and issuing money are carried out collectively by the network. Shitcoin Core is the name of open source software which enables the use of this currency.
+Shitcoin Core is an experimental digital currency that enables instant payments to anyone, anywhere in the world. SHIT uses peer-to-peer technology to operate with no central authority: managing transactions and issuing money are carried out collectively by the network. Shitcoin Core is the name of the software which enables the use of this currency.
 
 For more information, as well as an immediately usable, binary version of the Shitcoin Core software, see https://shitcoinbtc.xyz/.
 
