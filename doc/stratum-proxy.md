@@ -25,14 +25,34 @@ The stratum proxy removes that work. It is a single Python file,
 The proxy never touches your wallet keys. It only needs your node's RPC on
 localhost and your payout address.
 
+## Two ways to merge mine — and what each one earns
+
+There are two ways to merge mine SHIT, and they do not pay the same:
+
+- **Native, with `getauxblock`:** pool software that can build AuxPoW
+  itself asks the daemon for work with the `getauxblock` RPC, anchored
+  in a real Bitcoin block from its own Bitcoin node, and submits the
+  solved work back the same way. Because the parent is a real Bitcoin
+  block, the same work earns both: a solved parent pays the Bitcoin
+  block reward, and the aux block pays SHIT. BTC + SHIT.
+- **Through this proxy:** the proxy builds a synthetic parent block
+  locally. That parent is not a real Bitcoin block and is never
+  broadcast to the Bitcoin network, so no Bitcoin reward can come from
+  it. Mining through the proxy earns SHIT only.
+
+Use the proxy when your pool software cannot build AuxPoW itself and
+SHIT-only rewards are what you want. Use the native `getauxblock` path
+when your software can do the work and you want the Bitcoin reward as
+well.
+
 ## What changed at block 88,000
 
 A hard fork went live on 2026-10-18 at block 88,000. The fork changed
 the AuxPoW chain ID from 16 to 29.
 
-The proxy was updated the morning of the fork so merge mining keeps
-working with real parent coins under the new chain ID. The change is
-height gated inside the proxy:
+The proxy was updated the morning of the fork so it stamps the correct
+chain ID under the new rules. The change is height gated inside the
+proxy:
 
 - Blocks below 88,000 are stamped with AuxPoW chain ID 16.
 - Blocks from 88,000 on are stamped with AuxPoW chain ID 29

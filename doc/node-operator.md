@@ -16,6 +16,29 @@ to trust.
   (2026-10-17). That is an older release; the network has moved on to
   v5.0.9.
 
+## Install and upgrade
+
+First install:
+
+1. Download `syscoind` and `syscoin-cli` from the downloads page
+   (https://shitcoinbtc.xyz/downloads/) and verify both against
+   `SHA256SUMS.txt` from the same page before you run anything.
+2. Install both files to `/usr/local/bin`, mode 755.
+3. Start `sysgeth` with `--nevmpub tcp://127.0.0.1:9377`. That flag is
+   required — see the sysgeth section below. Without it, NEVM blocks
+   fail with `nevm-data-not-found`.
+4. Start `syscoind` and let it sync. The pool setup guide on the website
+   links a chain snapshot if you want the fast path.
+
+Upgrading:
+
+- Stop the node service, replace both binaries in `/usr/local/bin` with
+  the current version, and start the service again.
+- Never delete the datadir on upgrade.
+- No resync or reindex is needed when upgrading across the block 88,000
+  fork: a node on the current version follows the chain straight
+  through it.
+
 ## The two chain IDs (do not mix them up)
 
 Shitcoin has two different chain IDs, for two different jobs:
@@ -68,3 +91,8 @@ Pool operators merge-mine SHIT with the stratum proxy in
 - A proxy older than that update stamps chain ID 16 at every height.
   Every block it makes at or after block 88,000 is rejected with
   `bad-chainid`. Replace it with the current file and restart it.
+- Two ways to merge mine, and they pay differently: pool software that
+  builds AuxPoW itself can use the daemon's native `getauxblock` path,
+  anchored in a real Bitcoin block, and earn BTC + SHIT. The proxy
+  builds a synthetic parent instead, so mining through it earns SHIT
+  only. See `doc/stratum-proxy.md`.
