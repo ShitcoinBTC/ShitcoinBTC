@@ -9,35 +9,27 @@ Shitcoin Core
 
 Setup
 ---------------------
-Shitcoin Core is the original Syscoin client and it builds the backbone of the network. It downloads and, by default, stores the entire history of Syscoin transactions, which requires a few hundred gigabytes of disk space. Depending on the speed of your computer and network connection, the synchronization process can take anywhere from a few hours to a day or more.
+Shitcoin Core builds the backbone of the Shitcoin network. It is a fork of Syscoin Core, and the node programs are still named `syscoind` and `syscoin-cli`. It downloads and, by default, stores the entire history of Shitcoin transactions. Depending on the speed of your computer and network connection, the synchronization process can take anywhere from a few hours to a day or more.
 
-To download Syscoin Core, visit [syscoincore.org](https://syscoincore.org/en/download/).
+To download Shitcoin Core, use the releases page of this repository: [github.com/ShitcoinBTC/ShitcoinBTC/releases](https://github.com/ShitcoinBTC/ShitcoinBTC/releases). The current public release is **v5.0.7**, published 2026-10-17; the `syscoind` file in that release has a SHA-256 hash beginning `df27b410`. Check your download against the `SHA256SUMS.txt` file in the same release. There is no public v5.0.8 or v5.0.9 release; those versions exist only on internal nodes.
 
 Running
 ---------------------
-The following are some helpful notes on how to run Syscoin Core on your native platform.
+The following are some helpful notes on how to run Shitcoin Core on your native platform. Running a node, the two chain IDs, the sysgeth flag the NEVM layer needs, and the merge-mining proxy are covered in [Running a Shitcoin Node: Operator Notes](node-operator.md).
 
 ### Unix
 
 Unpack the files into a directory and run:
 
-- `bin/syscoin-qt` (GUI) or
-- `bin/syscoind` (headless)
+- `bin/syscoind` (headless node)
+- `bin/syscoin-cli` (command line control for a running node)
 
-### Windows
-
-Unpack the files into a directory, and then run syscoin-qt.exe.
-
-### macOS
-
-Drag Syscoin Core to your applications folder, and then run Syscoin Core.
+If you run the NEVM layer, sysgeth must be started with `--nevmpub tcp://127.0.0.1:9377`. Without that flag, NEVM blocks fail with `nevm-data-not-found`.
 
 ### Need Help?
 
-* See the documentation at the [Syscoin Wiki](https://support.syscoin.org)
-for help and more information.
-* Ask for help on [#syscoin](http://webchat.freenode.net?channels=syscoin) on Freenode. If you don't have an IRC client, use [webchat here](http://webchat.freenode.net?channels=syscoin).
-* Ask for help on the [BitcoinTalk](https://syscointalk.org/) forums, in the [Technical Support board](https://bitcointalk.org/index.php?board=4.0).
+* Start with the documentation in this folder and the [Shitcoin whitepaper](whitepaper.md).
+* Ask for help in the ShitcoinBTC community channels linked from the [root README](/README.md).
 
 Building
 ---------------------
@@ -76,6 +68,7 @@ The Syscoin repo's [root README](/README.md) contains relevant information on th
 * Discuss general Syscoin development on #syscoin-dev on Freenode. If you don't have an IRC client, use [webchat here](http://webchat.freenode.net/?channels=syscoin-dev).
 
 ### Miscellaneous
+- [Running a Shitcoin Node: Operator Notes](node-operator.md)
 - [Assets Attribution](assets-attribution.md)
 - [bitcoin.conf Configuration File](syscoin-conf.md)
 - [CJDNS Support](cjdns.md)

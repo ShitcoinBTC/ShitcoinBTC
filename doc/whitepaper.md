@@ -9,7 +9,7 @@
 
 ## Abstract
 
-Here's the pitch, and it's a short one: Shitcoin (SHIT) is a joke coin built like
+Here's the short version: Shitcoin (SHIT) is a joke coin built like
 it isn't one. Bitcoin miners earn it on the side for doing work they were already
 doing. It has two layers, a UTXO payment layer and an EVM-compatible smart contract
 layer, with a trustless bridge between them. And it ships with a DEX and an
@@ -83,8 +83,15 @@ In the code, that looks like this:
 - `CAuxPow::check()` (`src/auxpow.cpp`) validates the parent Bitcoin block, the
   chain merkle branch, and the merged-mining header sitting in the coinbase -
   the standard, audited AuxPoW construction.
-- Shitcoin's AuxPoW chain ID is **16** (testnet: 8), registered so parent
-  coinbases can commit to it without colliding with other merge-mined chains.
+- Shitcoin's AuxPoW chain ID is **29** (testnet: 8). It was 16 until block
+  88,000, when it changed to 29 on 2026-10-18. Syscoin still uses 16, so the
+  two chains no longer collide: SHIT and SYS can now be merge-mined together
+  in the same merged-mining tree, with Bitcoin as the real parent chain.
+  Blocks below 88,000 keep chain ID 16 and are checked exactly as before.
+- Do not mix the two chain IDs up. The AuxPoW chain ID (29) is the number
+  stamped into parent coinbases for merged mining. The NEVM chain ID
+  (**20026**, Section 3) is a different number, used by the EVM layer and
+  Ethereum tooling. They are not interchangeable.
 - Strict chain-ID enforcement (`fStrictChainId`) rejects parent blocks that
   claim our own chain ID, which closes off a whole category of spoofing attacks.
 
@@ -96,7 +103,7 @@ costs pocket change. A merge-mined chain is born strong, renting Bitcoin's
 Shitcoin costs as much as attacking Bitcoin, because the work *is* Bitcoin's
 work.
 
-For miners the pitch is one sentence: point your existing SHA-256 rigs at a
+For miners it comes down to one sentence: point your existing SHA-256 rigs at a
 Shitcoin-aware pool and collect SHIT block rewards on top of your BTC. No new
 hardware, no new electricity, no new heat. Free money for work you were already
 doing.
@@ -115,7 +122,13 @@ confirmations (ZDAG-style). This is where SHIT lives as money.
 **Layer 2 - NEVM (the Ethereum layer).** A full EVM-equivalent runtime
 (chain ID **20026** on mainnet) embedded in the node. Any Solidity contract, any
 Ethereum wallet, any EVM tooling - it all just works, except gas is paid in
-SHIT instead of ETH.
+SHIT instead of ETH. The NEVM chain ID, 20026, is not the AuxPoW chain ID
+(29, Section 2): one is for EVM tooling, the other is for merged mining.
+
+Running the NEVM layer takes one extra program, sysgeth, and one flag that
+cannot be skipped: sysgeth must be started with
+`--nevmpub tcp://127.0.0.1:9377`. Without that flag the node cannot get NEVM
+block data from sysgeth, and NEVM blocks fail with `nevm-data-not-found`.
 
 Both layers share one validator set (the masternode quorum network) and one
 security budget (Bitcoin-merged mining). Moving SHIT between layers goes
@@ -316,7 +329,7 @@ new SHIT gets minted roughly 100 years after genesis. Where it all goes:
 
 | Bucket | Share | Amount | Notes |
 |--------|-------|--------|-------|
-| Presale | 18% | 3,780,000,000 | Team-controlled block-1 payout; distributed to buyers via the ShitVesting contract (24 monthly unlocks, no cliff) |
+| Presale | 18% | 3,780,000,000 | Team-controlled block-1 payout; distributed to buyers via the ShitVesting contract (12 monthly unlocks, no cliff) |
 | Team | 14% | 2,940,000,000 | Core team and founders |
 | Coin support | 2% | 420,000,000 | Listings, liquidity, marketing, ops |
 | Wrapping reserve | 6% | 1,260,000,000 | Team-controlled block-1 payout; backs wrapped SHIT on Solana/Ethereum launchpads and exchanges |
@@ -366,6 +379,11 @@ The spec sheet:
   **Taproot/Segwit** support from the Bitcoin Core base.
 - **Network identity:** mainnet P2P magic `ce e2 ca ff`, default port 8369,
   bech32 HRP `shit` (chain params in `src/kernel/chainparams.cpp`).
+- **Current public release:** v5.0.7, published on GitHub on 2026-10-17
+  (the `syscoind` file in that release has a SHA-256 hash beginning
+  `df27b410`). That is the newest release operators should run. There is no
+  public v5.0.8 or v5.0.9 release. See `doc/node-operator.md` for the
+  operator notes.
 
 ---
 
