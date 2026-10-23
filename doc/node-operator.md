@@ -12,9 +12,12 @@ to trust.
   https://shitcoinbtc.xyz/downloads/ — the `syscoind` file there has a
   SHA-256 hash beginning `436dba8c`. Check your download against the
   `SHA256SUMS.txt` file on the same page before you run it.
-- The newest release on the GitHub releases page is v5.0.7
-  (2026-10-17). That is an older release; the network has moved on to
-  v5.0.9.
+- The current release on the GitHub releases page is v5.0.9:
+  https://github.com/ShitcoinBTC/ShitcoinBTC/releases/tag/v5.0.9 —
+  it publishes the same v5.0.9 files, with the same checksums, as the
+  downloads page above. The older v5.0.7 release (2026-10-17) was
+  built without ZMQ and cannot build merge mining templates; do not
+  use it.
 
 ## Install and upgrade
 
