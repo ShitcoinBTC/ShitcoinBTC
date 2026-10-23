@@ -15,7 +15,7 @@ To download Shitcoin Core, use the downloads page on the project website: [shitc
 
 Running
 ---------------------
-The following are some helpful notes on how to run Shitcoin Core on your native platform. Running a node, the two chain IDs, the sysgeth flag the NEVM layer needs, and the merge-mining proxy are covered in [Running a Shitcoin Node: Operator Notes](node-operator.md).
+The following are some helpful notes on how to run Shitcoin Core on your native platform. Running a node, the two chain IDs, how the daemon manages sysgeth for the NEVM layer, and the merge-mining proxy are covered in [Running a Shitcoin Node: Operator Notes](node-operator.md).
 
 ### Unix
 
@@ -24,7 +24,7 @@ Unpack the files into a directory and run:
 - `bin/syscoind` (headless node)
 - `bin/syscoin-cli` (command line control for a running node)
 
-If you run the NEVM layer, sysgeth must be started with `--nevmpub tcp://127.0.0.1:9377`. Without that flag, NEVM blocks fail with `nevm-data-not-found`.
+If you run the NEVM layer, install the `sysgeth` binary beside `syscoind`: with v5.0.9 the daemon launches sysgeth itself and passes `--nevmpub` from `zmqpubnevm=tcp://127.0.0.1:9377` in `syscoin.conf` (see [node-operator.md](node-operator.md) for the full recipe). Do not run sysgeth as a separate service. Without the `zmqpubnevm` line, NEVM blocks fail with `nevm-data-not-found`.
 
 ### Need Help?
 

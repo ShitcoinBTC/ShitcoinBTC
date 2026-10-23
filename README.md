@@ -35,9 +35,14 @@ Current release and chain facts
 - **NEVM chain ID: 20026.** This is a different number from the AuxPoW
   chain ID. Do not confuse them: 29 is the AuxPoW chain ID for merged
   mining, 20026 is the chain ID for NEVM smart contracts and wallets.
-- **Starting sysgeth:** sysgeth must be started with
-  `--nevmpub tcp://127.0.0.1:9377`. Without that flag, NEVM blocks
-  fail with `nevm-data-not-found`.
+- **sysgeth:** with v5.0.9 the daemon manages sysgeth itself — it
+  launches the `sysgeth` binary found beside `syscoind` and passes
+  `--syscoin` and `--nevmpub` itself, driven by `syscoin.conf`
+  (`zmqpubnevm=tcp://127.0.0.1:9377` plus the `gethcommandline` lines,
+  including the required `--syscoin.statebootstrap.disable`). Do not
+  run sysgeth as a separate service with this build. Without the
+  `zmqpubnevm` line, NEVM blocks fail with `nevm-data-not-found`.
+  See `doc/node-operator.md` for the full recipe.
 
 Join the mining pool
 ---------------------

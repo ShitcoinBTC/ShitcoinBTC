@@ -24,9 +24,11 @@ First install:
    (https://shitcoinbtc.xyz/downloads/) and verify both against
    `SHA256SUMS.txt` from the same page before you run anything.
 2. Install both files to `/usr/local/bin`, mode 755.
-3. Start `sysgeth` with `--nevmpub tcp://127.0.0.1:9377`. That flag is
-   required — see the sysgeth section below. Without it, NEVM blocks
-   fail with `nevm-data-not-found`.
+3. Install `sysgeth` beside `syscoind` (to `/usr/local/bin`, mode 755).
+   The v5.0.9 daemon manages `sysgeth` itself — see the sysgeth section
+   below. Do not start `sysgeth` yourself and do not run it as a
+   separate service. Note: the v5.0.9 daemon links `libzmq.so.5`, so
+   the `libzmq5` package must be installed for it to start.
 4. Start `syscoind` and let it sync. The pool setup guide on the website
    links a chain snapshot if you want the fast path.
 
@@ -60,16 +62,36 @@ Shitcoin has two different chain IDs, for two different jobs:
 
 The NEVM layer runs through a second program, sysgeth, next to `syscoind`.
 
-- sysgeth must be started with:
+- With v5.0.9 the daemon manages sysgeth itself: at startup `syscoind`
+  stops any running sysgeth, then launches the sysgeth it finds beside
+  `syscoind` (`<bindir>/sysgeth` and sibling paths, for example
+  `/usr/local/bin/sysgeth` next to `/usr/local/bin/syscoind`). If no
+  sysgeth is found there, NEVM init stalls.
+- Do not run sysgeth as a separate service with this build. If an older
+  install left a standalone `sysgeth.service` behind, disable it:
+  `systemctl disable --now sysgeth 2>/dev/null || true`.
+The daemon passes `--syscoin` and `--nevmpub` itself, driven by
+`syscoin.conf`. The production `syscoin.conf` recipe is:
 
-  ```sh
-  --nevmpub tcp://127.0.0.1:9377
-  ```
+```ini
+zmqpubnevm=tcp://127.0.0.1:9377
+gethcommandline=--syscoin.statebootstrap.disable
+gethcommandline=--nodiscover
+gethcommandline=--maxpeers=0
+gethcommandline=--http
+gethcommandline=--http.addr=127.0.0.1
+gethcommandline=--http.port=8545
+gethcommandline=--http.api=eth,net,web3
+```
 
-- That flag has no default. Without it, the node cannot get NEVM block
-  data from sysgeth, and NEVM blocks fail with `nevm-data-not-found`.
-- If you see `nevm-data-not-found`, check the sysgeth start command
-  first, before anything else.
+- `zmqpubnevm` is where the daemon takes the `--nevmpub` address from.
+- `--syscoin.statebootstrap.disable` is required. Without it, the
+  spawned sysgeth downloads the Syscoin mainnet state bootstrap
+  (about 1 GB) and never becomes ready: `getblocktemplate` and
+  `getauxblock` then fail with `nevm-data-not-found`.
+- If you see `nevm-data-not-found`, check the `syscoin.conf` lines
+  above and that the sysgeth binary sits beside `syscoind`, before
+  anything else.
 
 ## Merge-mining proxy
 

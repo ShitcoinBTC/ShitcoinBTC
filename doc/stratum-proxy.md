@@ -70,11 +70,18 @@ Do not confuse the three chain numbers:
 - Current node version: **v5.0.9** — the version the network runs.
 
 The proxy fetches NEVM templates from `sysgeth`, so `sysgeth` must be
-running with its NEVM publisher on:
+running. With v5.0.9 the daemon launches `sysgeth` itself from beside
+`syscoind` and passes `--nevmpub` itself, taken from `zmqpubnevm` in
+`syscoin.conf`:
 
 ```
---nevmpub tcp://127.0.0.1:9377
+zmqpubnevm=tcp://127.0.0.1:9377
 ```
+
+Do not run `sysgeth` as a separate service with this build. See the
+sysgeth section in `doc/node-operator.md` for the full `syscoin.conf`
+recipe, including the required
+`gethcommandline=--syscoin.statebootstrap.disable` line.
 
 ## Get the current file
 
