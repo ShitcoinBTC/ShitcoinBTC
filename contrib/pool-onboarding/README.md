@@ -7,19 +7,20 @@ and submits finished work to the Shitcoin daemon.
 
 ## Required update: block 88,000 chain ID fork
 
-**This version is required for merge-mining SHIT at and after block
+**This version has been required for merge-mining SHIT since block
 88,000.**
 
-At block 88,000 the Shitcoin AuxPoW chain ID changes from 16 to 29.
+At block 88,000 the Shitcoin AuxPoW chain ID changed from 16 to 29.
 This proxy is height-gated: it stamps chain ID 16 for blocks below
 88,000 and chain ID 29 for block 88,000 and above, automatically, with
 no operator action at the gate.
 
 Copies of this proxy older than this version stamp the old chain ID
-(16) at every height. Every block they produce at or after block
-88,000 is rejected by the network with `bad-chainid`. If you are
-running an older copy, replace it before block 88,000 or your pool
-stops producing valid SHIT blocks at the gate.
+(16) at every height. Every block they have produced at or after block
+88,000 was rejected by the network with `bad-chainid`. Block 88,000
+passed on 2026-10-18, so if you are still running an older copy,
+replace it now: your pool has not produced valid SHIT blocks since
+the gate.
 
 ## Install
 

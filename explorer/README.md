@@ -147,7 +147,7 @@ Updating to a newer upstream release: edit `EXPLORER_VERSION` in
 ## Phase 2 (not included)
 
 - **NEVM explorer (Blockscout):** point a Blockscout instance at the local
-  geth RPC (`127.0.0.1:8545`, chain ID 57) for SHIT-20 token / contract
+  geth RPC (`127.0.0.1:8545`, chain ID 20026) for SHIT-20 token / contract
   visibility. Separate service, separate guide.
 - **Electrum-protocol server:** an ElectRS fork patched with ShitcoinBtc's
   genesis hash would give BTC RPC Explorer full address history
