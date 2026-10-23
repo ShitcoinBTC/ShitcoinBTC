@@ -379,11 +379,11 @@ The spec sheet:
   **Taproot/Segwit** support from the Bitcoin Core base.
 - **Network identity:** mainnet P2P magic `ce e2 ca ff`, default port 8369,
   bech32 HRP `shit` (chain params in `src/kernel/chainparams.cpp`).
-- **Current public release:** v5.0.7, published on GitHub on 2026-10-17
-  (the `syscoind` file in that release has a SHA-256 hash beginning
-  `df27b410`). That is the newest release operators should run. There is no
-  public v5.0.8 or v5.0.9 release. See `doc/node-operator.md` for the
-  operator notes.
+- **Current version:** v5.0.9. The network runs v5.0.9, and that is the
+  version operators should run. The v5.0.9 node files and their SHA-256
+  checksums are on the project downloads page
+  (https://shitcoinbtc.xyz/downloads/). See `doc/node-operator.md` for
+  the operator notes.
 
 ---
 

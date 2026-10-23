@@ -11,7 +11,7 @@ Setup
 ---------------------
 Shitcoin Core builds the backbone of the Shitcoin network. It is a fork of Syscoin Core, and the node programs are still named `syscoind` and `syscoin-cli`. It downloads and, by default, stores the entire history of Shitcoin transactions. Depending on the speed of your computer and network connection, the synchronization process can take anywhere from a few hours to a day or more.
 
-To download Shitcoin Core, use the releases page of this repository: [github.com/ShitcoinBTC/ShitcoinBTC/releases](https://github.com/ShitcoinBTC/ShitcoinBTC/releases). The current public release is **v5.0.7**, published 2026-10-17; the `syscoind` file in that release has a SHA-256 hash beginning `df27b410`. Check your download against the `SHA256SUMS.txt` file in the same release. There is no public v5.0.8 or v5.0.9 release; those versions exist only on internal nodes.
+To download Shitcoin Core, use the downloads page on the project website: [shitcoinbtc.xyz/downloads](https://shitcoinbtc.xyz/downloads/). The network runs **v5.0.9**, the current version; the `syscoind` file on that page has a SHA-256 hash beginning `436dba8c`. Check your download against the `SHA256SUMS.txt` file on the same page. The newest release on this repository's [GitHub releases page](https://github.com/ShitcoinBTC/ShitcoinBTC/releases) is v5.0.7, published 2026-10-17 — an older release.
 
 Running
 ---------------------

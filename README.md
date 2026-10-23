@@ -20,13 +20,15 @@ Further information about Shitcoin Core is available in the [doc folder](/doc).
 Current release and chain facts
 -------------------------------
 
-- **Current public release: v5.0.7**, published on GitHub on 2026-10-17.
-  The `syscoind` file in that release has a SHA256 checksum beginning
-  `df27b410` (`df27b4101ea92ecb4bff73ed028e6da6a00492c62573d818605897c6129475cf`).
-  Check your download against `SHA256SUMS.txt` from the same release
+- **Current version: v5.0.9.** The network runs v5.0.9, and that is the
+  version operators should run. The v5.0.9 node files are on the project
+  downloads page: https://shitcoinbtc.xyz/downloads/ — the `syscoind`
+  file there has a SHA256 checksum beginning `436dba8c`
+  (`436dba8c3bd7983887cc3d14945143ff13ea8db95ffaa1e1c28de8a7337f2422`).
+  Check your download against `SHA256SUMS.txt` from the same page
   before you install it.
-- v5.0.8 and v5.0.9 are not public releases. They run only on internal
-  nodes. Operators should run v5.0.7, not v5.0.8 or v5.0.9.
+- The newest release on the GitHub releases page is v5.0.7 (2026-10-17).
+  That is an older release; the network has moved on to v5.0.9.
 - **AuxPoW chain ID: 29.** This changed at block 88,000 on 2026-10-18.
   It was 16 before block 88,000. Since the change, SHIT and SYS can
   share one merge-mining tree under Bitcoin as the real parent chain.

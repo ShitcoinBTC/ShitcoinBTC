@@ -27,8 +27,8 @@ localhost and your payout address.
 
 ## What changed at block 88,000
 
-A hard fork went live on 2026-10-18 at block 88,000, in node release
-v5.0.7. The fork changed the AuxPoW chain ID from 16 to 29.
+A hard fork went live on 2026-10-18 at block 88,000. The fork changed
+the AuxPoW chain ID from 16 to 29.
 
 The proxy was updated the morning of the fork so merge mining keeps
 working with real parent coins under the new chain ID. The change is
@@ -47,7 +47,7 @@ Do not confuse the three chain numbers:
 - AuxPoW chain ID: **29** (16 before block 88,000).
 - NEVM chain ID: **20026**. This is a different number, used on the NEVM
   side only.
-- Current public node release: **v5.0.7** (GitHub, 2026-10-17).
+- Current node version: **v5.0.9** — the version the network runs.
 
 The proxy fetches NEVM templates from `sysgeth`, so `sysgeth` must be
 running with its NEVM publisher on:

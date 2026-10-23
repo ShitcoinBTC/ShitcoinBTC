@@ -4,17 +4,17 @@ Short, current notes for anyone running a Shitcoin (SHIT) node or mining
 SHIT. If a number here disagrees with an older page, this page is the one
 to trust.
 
-## Current public release
+## Current version
 
-- The current public release is **v5.0.7**, published on GitHub on
-  2026-10-17: https://github.com/ShitcoinBTC/ShitcoinBTC/releases/tag/v5.0.7
-- The `syscoind` file in that release has a SHA-256 hash beginning
-  `df27b410`. Check your download against the `SHA256SUMS.txt` file in
-  the same release before you run it.
-- v5.0.8 and v5.0.9 exist only on internal nodes. They were never
-  published. There is no public v5.0.8 or v5.0.9 release, so do not go
-  looking for one, and do not run a copy that claims to be one.
-  Operators run v5.0.7.
+- The network runs **v5.0.9**. That is the current version, and it is
+  the version operators should run.
+- Get the v5.0.9 node files from the project downloads page:
+  https://shitcoinbtc.xyz/downloads/ — the `syscoind` file there has a
+  SHA-256 hash beginning `436dba8c`. Check your download against the
+  `SHA256SUMS.txt` file on the same page before you run it.
+- The newest release on the GitHub releases page is v5.0.7
+  (2026-10-17). That is an older release; the network has moved on to
+  v5.0.9.
 
 ## The two chain IDs (do not mix them up)
 
