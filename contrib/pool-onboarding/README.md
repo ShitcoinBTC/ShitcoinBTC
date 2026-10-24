@@ -40,8 +40,8 @@ sudo systemctl restart shitcoin-stratum-proxy
 ```
 
 Configuration lives in `/etc/shitcoin-stratum-proxy/proxy.conf`. See
-the merged mining guide on https://shitcoinbtc.xyz for full pool setup
-instructions.
+the pool setup guide at https://shitcoinbtc.xyz/pool-setup.html for
+full pool setup instructions.
 
 ## Verifying you have the right version
 
