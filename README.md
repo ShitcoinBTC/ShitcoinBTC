@@ -27,8 +27,11 @@ Current release and chain facts
   (`436dba8c3bd7983887cc3d14945143ff13ea8db95ffaa1e1c28de8a7337f2422`).
   Check your download against `SHA256SUMS.txt` from the same page
   before you install it.
-- The newest release on the GitHub releases page is v5.0.7 (2026-10-17).
-  That is an older release; the network has moved on to v5.0.9.
+- **Newest GitHub release: v5.0.9.** The newest release on the
+  [releases page](https://github.com/ShitcoinBTC/ShitcoinBTC/releases)
+  is v5.0.9 - see the
+  [v5.0.9 release](https://github.com/ShitcoinBTC/ShitcoinBTC/releases/tag/v5.0.9).
+  v5.0.7 is an older release; the network has moved on to v5.0.9.
 - **AuxPoW chain ID: 29.** This changed at block 88,000 on 2026-10-18.
   It was 16 before block 88,000. Since the change, SHIT and SYS can
   share one merge-mining tree under Bitcoin as the real parent chain.
