@@ -64,12 +64,15 @@ Taproot (bc1p) and exchange Bitcoin addresses can register a SHIT address in the
 
 Check your stats on the [pool dashboard](http://170.101.111.196:8080/).
 
-Pool operators running the stratum proxy: use the current proxy file
-from [contrib/pool-onboarding/](contrib/pool-onboarding/). It was
-updated on the morning of the block 88,000 fork so it stamps AuxPoW
-chain ID 16 below block 88,000 and chain ID 29 at block 88,000 and
-above. The current server proxy file has a SHA256 checksum beginning
-`d5379a47` (`d5379a475e4b6c544fa55b97866388fda47b064687edfb7a07c8ca733c3416a3`).
+Pool operators: the full pool setup kit lives in
+[contrib/pool-onboarding/](contrib/pool-onboarding/) — the one-command
+installer (`pool-setup.sh`), the current stratum proxy, the yiimp
+adapter bundle, example configs, and the setup guide source. The same
+kit is served on the project site; the step-by-step guide is at
+https://shitcoinbtc.xyz/pool-setup.html. The current proxy stamps
+AuxPoW chain ID 16 below block 88,000 and chain ID 29 at block 88,000
+and above, and its SHA256 checksum is
+`4ace8e29f66578cdf9ae6de2491f2eb564ae2d1efe02358bf651f2e10396c18d`.
 See the pool onboarding README for the update and check steps.
 
 Renting hash? Use host 170.101.111.196 on port 3334 instead of 3333 (starts at difficulty 1,048,576), with the same password recipe: your SHIT address registers on connect. If you pin a difficulty with password `d=<diff>` instead, no SHIT address is registered and your SHIT builds up and waits. Port 3333 stays the general port.
