@@ -1,0 +1,409 @@
+<!DOCTYPE html><html><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ShitcoinBtc Pool Operator Setup Guide</title>
+<style>body{font-family:system-ui,sans-serif;max-width:860px;margin:2em auto;padding:0 1em;line-height:1.6;color:#222}
+pre{background:#f4f4f4;padding:1em;overflow-x:auto}code{background:#f4f4f4;padding:2px 5px}
+pre code{background:none;padding:0}table{border-collapse:collapse;margin:1em 0}h1{border-bottom:2px solid #e80}</style>
+</head><body><h1>ShitcoinBtc Pool Operator Setup Guide</h1>
+<p><b>Run your own pool:</b> this is the operator page. If you just want to point an ASIC and mine, use the <a href="/pool">join page</a> instead.</p>
+<h2>Read first: the block 88,000 fork and the current version</h2>
+<p><b>Current version: v5.0.9</b> — the version the network runs. Install only v5.0.9, using the steps below. The <code>syscoind</code> file on the <a href="/downloads">downloads page</a> has SHA256 <code>436dba8c3bd7983887cc3d14945143ff13ea8db95ffaa1e1c28de8a7337f2422</code> — check your download against it (step 3). The files on that page are the exact binaries running on the network's own nodes.</p>
+<p><b>AuxPoW chain ID is 29 since block 88,000</b> (it was 16 before; the change took effect on 2026-10-18). Blocks below 88,000 used chain ID 16. Blocks from 88,000 up must carry chain ID 29, and software from before the fork rejects them. Since this change, SHIT and SYS can share one merge-mining tree under Bitcoin as the real parent.</p>
+<p><b>Do not mix up the two chain IDs:</b> the AuxPoW chain ID is <b>29</b>. The NEVM chain ID is <b>20026</b>. They are different numbers used for different things.</p>
+<h2>0. The fast path: one command (recommended)</h2>
+<p>If you just want to mine ShitcoinBtc with your pool, run this on a fresh</p>
+<p>Ubuntu 22.04/24.04 box (2 GB RAM, 1 vCPU, 25 GB SSD minimum) and skip to</p>
+<p>section 8, then complete the REQUIRED checks in section 8A before you point real hash at it:</p>
+<pre><code>
+curl -sSL https://shitcoinbtc.xyz/pool-setup.sh | sudo bash -s -- --payout shit1qYOURPAYOUTADDRESS
+</code></pre>
+<p>That installs the node, the NEVM helper, restores the fast-sync snapshot, creates a dedicated <code>pool</code> wallet on the node (step 7 of the script, so its acceptance test has a wallet to call), and starts our <b>merged-mining stratum proxy</b>. Point any stock stratum miner (cpuminer, cgminer, ...) at <code>127.0.0.1:3333</code> <b>on this box</b> and you are mining. The proxy listens on localhost by default: if your miners run on other machines, set <code>LISTEN_HOST</code> in <code>proxy.conf</code> to this box's LAN address and read the stratum security notes below first — never expose raw stratum to the internet. Your pool software needs <b>no merged-mining support</b> -- the proxy builds every block's AuxPoW for you (see "How the proxy works" below). Block rewards pay to the <code>--payout</code> address you gave.</p>
+<p><b>No <code>shit1...</code> address yet?</b> Get one before you run the command: from any ShitcoinBtc wallet you already use, or from the web wallet. The script cannot invent one for you, and it exits without <code>--payout</code>. (Once a node is running you can also make one there — <code>createwallet</code> then <code>getnewaddress</code>, section 7 — but the fast path needs the address up front.)</p>
+<p>Prefer to do it by hand, or integrating with existing pool software? Continue</p>
+<p>below.</p>
+<h2>How the proxy works (read this once)</h2>
+<p>ShitcoinBtc is merge-mined: every block must carry a valid AuxPoW. Normally</p>
+<p>your pool software would have to build that itself. The proxy removes that</p>
+<p>burden:</p>
+<ul>
+<li>It runs next to your node and builds the full block itself: coinbase paying</li>
+</ul>
+<p>  <b>your</b> payout address, mempool transactions, and the NEVM commitment.</p>
+<ul>
+<li>It serves <b>standard stratum v1</b> jobs. To your miners the jobs look exactly</li>
+</ul>
+<p>  like mining any normal sha256d coin -- no special software, no config</p>
+<p>  changes beyond the pool URL.</p>
+<ul>
+<li>It validates shares (with automatic per-worker difficulty), and when a</li>
+</ul>
+<p>  share meets the network target it assembles the AuxPoW block and submits it</p>
+<p>  to your node.</p>
+<p><b>What mining through the proxy earns:</b> the proxy builds a synthetic parent block locally. That parent is not a real Bitcoin block and is never broadcast to the Bitcoin network, so mining through the proxy earns <b>SHIT only</b>. If your pool software can build AuxPoW itself, use the daemon's native <code>getauxblock</code> path against your own Bitcoin node instead — the parent there is a real Bitcoin block, so the same work earns BTC + SHIT.</p>
+<p>The proxy is a single Python file, no exotic dependencies. Everything for a manual install is on the downloads page — you need all three of these files:</p>
+<ul>
+<li>the proxy itself: <a href="https://shitcoinbtc.xyz/downloads/shitcoin-stratum-proxy.py"><code>https://shitcoinbtc.xyz/downloads/shitcoin-stratum-proxy.py</code></a></li>
+<li>its config template: <a href="https://shitcoinbtc.xyz/downloads/proxy.conf.example"><code>https://shitcoinbtc.xyz/downloads/proxy.conf.example</code></a></li>
+<li>its systemd unit: <a href="https://shitcoinbtc.xyz/downloads/shitcoin-stratum-proxy.service.example"><code>https://shitcoinbtc.xyz/downloads/shitcoin-stratum-proxy.service.example</code></a></li>
+</ul>
+<p>It never touches your wallet keys -- it only needs the node's RPC (localhost) and your payout *address*.</p>
+<p><b>Stratum proxy and the fork — read this if you set up before block 88,000:</b> the current proxy stamps AuxPoW chain ID 29 on new blocks and carries the spool / retry / alarm submission protection in section 8A. A proxy copy from before the fork stamps chain ID 16, and blocks built with it are rejected at the current height; a copy without the 2026-10-26 submission protection can lose a found block silently. Get the current file from the link above and check it before you run it:</p>
+<pre><code>
+sha256sum shitcoin-stratum-proxy.py
+# must print: 4ace8e29f66578cdf9ae6de2491f2eb564ae2d1efe02358bf651f2e10396c18d
+</code></pre>
+<p>If your hash is different, your copy is old or altered. Download it again from the link above. <code>pool-setup.sh</code> checks this hash for you and stops if it does not match.</p>
+<p><b>Stratum security notes (read before you open ports):</b></p>
+<ul>
+<li>Stratum is cleartext. Miner usernames, passwords, and payout addresses travel</li>
+</ul>
+<p>  unencrypted -- anyone on the path can rewrite them and steal payouts. Put</p>
+<p>  stunnel/VPN in front of your stratum port, or keep miners on a private</p>
+<p>  network. Never expose the raw stratum port to the internet.</p>
+<ul>
+<li>Get your pool/miner software from its official source only and verify its</li>
+</ul>
+<p>  checksum/signature. A trojaned build can skim shares or redirect coinbase</p>
+<p>  outputs.</p>
+<ul>
+<li>Nobody from our team will ever DM you a &quot;fixed&quot; binary or config. If someone</li>
+</ul>
+<p>  claiming to be us sends you files, it is a scam -- get everything from the</p>
+<p>  links in this guide only.</p>
+<hr>
+<h2>1. Machine specs (real numbers, not guesses)</h2>
+<p>Measured on our live node (fully synced, height ~50,700):</p>
+<table border="1" cellpadding="8" cellspacing="0">
+<tr><td></td><td>Minimum</td><td>Recommended</td></tr>
+<tr><td>RAM</td><td>2 GB</td><td>4 GB</td></tr>
+<tr><td>CPU</td><td>1 vCPU</td><td>2 vCPU</td></tr>
+<tr><td>Disk</td><td>25 GB SSD</td><td>40 GB SSD</td></tr>
+<tr><td>OS</td><td>Ubuntu 22.04 / 24.04 x86_64</td><td>same</td></tr>
+</table>
+<p>Why these numbers: a synced node uses about 500 MB RAM total (<code>syscoind</code> ~360 MB, <code>sysgeth</code> ~50 MB) and under 1 GB disk (chain data ~85 MB at 50k blocks, it grows slowly). But the <b>initial sync is the peak</b> — that is where a small box chokes. One of our pool operators stalled permanently at block 48,000 on an undersized machine because the helper program ran out of memory mid-sync. Give it 2 GB and you avoid that entirely.</p>
+<p>Open TCP port <b>8369</b> in your firewall (P2P). Keep RPC (8370) on localhost only.</p>
+<h2>2. Fast path: use the chain snapshot (recommended)</h2>
+<p><b>Manual path — install the system packages first.</b> The fast-path script does this for you; by hand you must do it yourself, before anything below, or the binaries will not start and the proxy will die on <code>import zmq</code>. This is the same package list the script installs:</p>
+<pre><code>
+sudo apt-get update
+sudo apt-get install -y wget unzip python3 python3-zmq openssl curl ca-certificates libzmq5 libevent-2.1-7 libsqlite3-0 libgmp10 libssl3
+</code></pre>
+<p>Syncing from zero takes hours and is where small machines die. Skip most of it with the snapshot — but unpack it <b>as the <code>shitcoin</code> user, into the node's real datadir <code>/home/shitcoin/.syscoin</code></b>, not into your own login user's home. The node runs as user <code>shitcoin</code> (steps 5–6); a snapshot unpacked into the <code>.syscoin</code> folder in your own home directory is never seen by it, and the node then full-syncs for hours while you believe you restored it. So first create the user and datadir (the first two commands of step 5), then:</p>
+<pre><code>
+cd /tmp
+# grab the latest snapshot (the -latest file is always the newest build;
+# there is no directory listing page, so use the exact filename below)
+wget https://shitcoinbtc.xyz/snapshots/shitcoin-chain-snapshot-latest.tar.gz
+wget https://shitcoinbtc.xyz/snapshots/shitcoin-chain-snapshot-latest.tar.gz.sha256
+sha256sum -c shitcoin-chain-snapshot-latest.tar.gz.sha256   # must say OK
+# unpack AS user shitcoin INTO /home/shitcoin/.syscoin (handles both the
+# dated-folder layout of older snapshots and the flat layout of newer ones):
+sudo -u shitcoin bash -c 'cd /home/shitcoin/.syscoin &amp;&amp; if tar tzf /tmp/shitcoin-chain-snapshot-latest.tar.gz | head -1 | grep -q "^shitcoin-chain-snapshot-"; then tar xzf /tmp/shitcoin-chain-snapshot-latest.tar.gz --strip-components=1; else tar xzf /tmp/shitcoin-chain-snapshot-latest.tar.gz; fi'
+sudo chown -R shitcoin:shitcoin /home/shitcoin/.syscoin
+</code></pre>
+<p><b>How current is the snapshot, honestly:</b> the snapshot served today was built on <b>2026-10-18 at height 88,386</b>. The chain tip was about 110,000 when this guide was last updated (2026-10-26), so the snapshot puts you roughly <b>22,000 blocks behind</b> — it saves most of the sync, it does not drop you "near the tip", and syncing the remainder still takes real time. Plan for that; do not debug a healthy catch-up sync as a failure. One honesty note on the check above: the snapshot's <code>.sha256</code> file is served from the same site as the snapshot itself, so a passing check proves the download arrived intact — it is not an independent signature from a second source. If the snapshots page has no file yet, do the full sync in step 6 and be patient.</p>
+<h2>3. Install the node binaries</h2>
+<p>Install the current version, <b>v5.0.9</b>. The downloads page ships <code>syscoind</code> and <code>syscoin-cli</code> as single files — there is no tarball. Do not install the old v1.0.0 package: it is from before the fork and cannot follow the chain from block 88,000 up.</p>
+<pre><code>
+cd /tmp
+wget https://shitcoinbtc.xyz/downloads/syscoind
+wget https://shitcoinbtc.xyz/downloads/syscoin-cli
+wget https://shitcoinbtc.xyz/downloads/SHA256SUMS.txt
+# SHA256SUMS.txt also lists sysgeth (step 4 installs it) — check the two files downloaded here:
+grep -E '  (syscoind|syscoin-cli)$' SHA256SUMS.txt | sha256sum -c -   # both must say OK
+sha256sum syscoind            # must print: 436dba8c3bd7983887cc3d14945143ff13ea8db95ffaa1e1c28de8a7337f2422
+sudo install -m 755 syscoind /usr/local/bin/
+sudo install -m 755 syscoin-cli /usr/local/bin/
+syscoind --version   # should print v5.0.9
+</code></pre>
+<h2>4. Install sysgeth (the NEVM helper)</h2>
+<p><code>sysgeth</code> builds the NEVM block templates your pool needs for mining. With v5.0.9 the daemon manages <code>sysgeth</code> itself: at startup <code>syscoind</code> stops any running <code>sysgeth</code>, then launches the <code>sysgeth</code> it finds beside <code>syscoind</code> (in <code>/usr/local/bin</code>, next to the <code>syscoind</code> binary). Do <b>not</b> run <code>sysgeth</code> as a separate systemd service with this build. Just put the binary in place:</p>
+<pre><code>
+cd /tmp
+wget https://github.com/ShitcoinBTC/sysgeth/releases/download/v1.0.0/sysgeth-linux-x86_64.zip
+unzip -o sysgeth-linux-x86_64.zip
+md5sum sysgeth   # must print: 95601fd2e3f0829521bd8206df1f7b4b
+sudo install -m 755 sysgeth /usr/local/bin/sysgeth
+</code></pre>
+<p>Note on the version number: <code>sysgeth</code> is a separate program from the node and has its own release numbers. This build is the one running on our live nodes today — the MD5 check above proves your copy is that build.</p>
+<p>The daemon passes <code>--syscoin</code> and <code>--nevmpub</code> to <code>sysgeth</code> itself, driven by <code>syscoin.conf</code> (step 5): <code>zmqpubnevm=tcp://127.0.0.1:9377</code> sets the <code>--nevmpub</code> address, and the <code>gethcommandline</code> lines pass the rest. Without <code>zmqpubnevm</code>, NEVM blocks fail with <code>nevm-data-not-found</code> and <code>getblocktemplate</code> / <code>getauxblock</code> fail with <code>nevm-data-not-found</code>. The NEVM chain ID is 20026 — a different number from the AuxPoW chain ID 29.</p>
+<p><b>Required:</b> <code>--syscoin.statebootstrap.disable</code> must be one of the <code>gethcommandline</code> lines in <code>syscoin.conf</code>. Without it, the spawned <code>sysgeth</code> downloads the Syscoin mainnet state bootstrap (about 1 GB) and never becomes ready.</p>
+<p>Do not create a <code>sysgeth</code> service. If an older (5.0.7-era) install left one behind, stop and disable it so it does not compete with the daemon-managed <code>sysgeth</code>:</p>
+<pre><code>
+sudo systemctl disable --now sysgeth 2&gt;/dev/null || true
+</code></pre>
+<p>Do <b>not</b> install the old <code>/usr/local/bin/sysgeth</code> wrapper script that some early setups used — the real <code>sysgeth</code> binary itself must sit beside <code>syscoind</code> in <code>/usr/local/bin</code>.</p>
+<h2>5. Create the node user and config</h2>
+<p>If you followed step 2, the <code>shitcoin</code> user and <code>/home/shitcoin/.syscoin</code> already exist — <code>useradd</code> will say the user exists; that is fine, continue.</p>
+<pre><code>
+sudo useradd -m -s /bin/bash shitcoin
+sudo mkdir -p /home/shitcoin/.syscoin
+RPCPASS=$(openssl rand -hex 24)
+sudo tee /home/shitcoin/.syscoin/syscoin.conf &gt; /dev/null &lt;&lt;EOF
+server=1
+daemon=1
+txindex=1
+port=8369
+rpcport=8370
+rpcbind=127.0.0.1
+rpcallowip=127.0.0.1
+rpcuser=shitcoinrpc
+rpcpassword=$RPCPASS
+zmqpubnevm=tcp://127.0.0.1:9377
+gethcommandline=--syscoin.statebootstrap.disable
+gethcommandline=--nodiscover
+gethcommandline=--maxpeers=0
+gethcommandline=--http
+gethcommandline=--http.addr=127.0.0.1
+gethcommandline=--http.port=8545
+gethcommandline=--http.api=eth,net,web3
+maxconnections=40
+dbcache=512
+addnode=77.42.74.252
+addnode=170.101.111.196
+addnode=216.106.186.238
+EOF
+sudo chown -R shitcoin:shitcoin /home/shitcoin/.syscoin
+sudo chmod 600 /home/shitcoin/.syscoin/syscoin.conf
+echo &quot;RPC password: $RPCPASS   (save this)&quot;
+</code></pre>
+<p>The three <code>addnode</code> lines are our seed nodes (Helsinki, Frankfurt, Seattle).</p>
+<p><b>About <code>blocknotify</code>:</b> tip-change refresh wiring is <b>REQUIRED</b> on every pool path (section 8A), but the exact line depends on your path, so it is not in the base config above. The stratum proxy refreshes itself with its built-in 5-second tip poll and takes <b>no</b> <code>blocknotify</code> line — do not add one pointing at it. Yiimp + adapter and your-own-software setups add exactly one <code>blocknotify=</code> line, given verbatim in sections 8 and 8A. <code>syscoind</code> accepts only <b>one</b> <code>blocknotify</code> command: if two consumers need a poke, chain them with <code>;</code> in that single line, as section 8A shows — a second <code>blocknotify=</code> line silently replaces the first.</p>
+<h2>6. Run it as a service</h2>
+<pre><code>
+sudo tee /etc/systemd/system/syscoind.service &gt; /dev/null &lt;&lt;&#x27;EOF&#x27;
+[Unit]
+Description=ShitcoinBtc node
+After=network.target
+
+[Service]
+User=shitcoin
+ExecStart=/usr/local/bin/syscoind -datadir=/home/shitcoin/.syscoin -conf=/home/shitcoin/.syscoin/syscoin.conf
+Restart=always
+RestartSec=30
+LimitNOFILE=65535
+
+[Install]
+WantedBy=multi-user.target
+EOF
+sudo systemctl daemon-reload
+sudo systemctl enable --now syscoind
+</code></pre>
+<h2>7. Verify it is syncing</h2>
+<pre><code>
+# block height (compare to the network height on https://shitcoinbtc.xyz)
+sudo -u shitcoin syscoin-cli -datadir=/home/shitcoin/.syscoin getblockcount
+
+# sysgeth must be running — the daemon launches it itself (step 4)
+ps aux | grep &#x27;[s]ysgeth&#x27;
+
+# peer count (should climb to 8+ within minutes)
+sudo -u shitcoin syscoin-cli -datadir=/home/shitcoin/.syscoin getconnectioncount
+
+# no errors in the log
+sudo -u shitcoin tail -20 /home/shitcoin/.syscoin/debug.log
+</code></pre>
+<p><b>Final acceptance test — setup is NOT done until this passes.</b> Syncing is not the finish line: a node can be fully synced with 8+ peers and still be unable to build a single block. Once the node is synced, ask it for merge-mining work. There are two <b>equal</b> forms of this test — either one passing is acceptance:</p>
+<p><b>Form 1 — <code>getauxblock</code> (needs a wallet).</b> Parameterless <code>getauxblock</code> is a wallet RPC. The exact rule: it works when <b>exactly one</b> wallet is loaded on the daemon, or when you name the wallet with <code>-rpcwallet=&lt;wallet&gt;</code> on the CLI call. Create a dedicated wallet for this (the fast-path script already created one named <code>pool</code> for you):</p>
+<pre><code>
+# one-time: create the dedicated acceptance/pool wallet
+sudo -u shitcoin syscoin-cli -datadir=/home/shitcoin/.syscoin createwallet pool
+# the acceptance test itself, naming that wallet explicitly:
+sudo -u shitcoin syscoin-cli -datadir=/home/shitcoin/.syscoin -rpcwallet=pool getauxblock
+</code></pre>
+<p><b>Form 2 — <code>createauxblock &lt;payout&gt;</code> (wallet-free, equal acceptance path).</b> This form needs no wallet at all:</p>
+<pre><code>
+sudo -u shitcoin syscoin-cli -datadir=/home/shitcoin/.syscoin createauxblock shit1qYOURPAYOUTADDRESS
+</code></pre>
+<p>Either form's answer must be a block template (JSON) containing <code>"chainid": 29</code>. That, and only that, proves your node can build blocks on the current chain. Failure branches, in the order you will actually hit them:</p>
+<ul>
+<li><b>It refuses with a masternode-sync error</b> ("masternode sync not complete" / "Masternode information has not synced"): this is <b>not</b> a broken install. After every daemon start, masternode sync restarts and takes about 2–3 minutes, and <code>getauxblock</code> refuses until it completes. Check <code>sudo -u shitcoin syscoin-cli -datadir=/home/shitcoin/.syscoin mnsync status</code>, wait until it reports synced, then run the test again.</li>
+<li>If it answers <code>nevm-data-not-found</code>, the NEVM block is missing or wrong in <code>syscoin.conf</code> — go back to step 5, check the <code>zmqpubnevm</code> and <code>gethcommandline</code> lines, and restart <code>syscoind</code>.</li>
+<li>If it answers that no wallet is loaded or specified (error <code>-19</code> on form 1), you have zero or 2+ wallets loaded and named none: create the dedicated wallet above, or re-run with <code>-rpcwallet=&lt;wallet&gt;</code> — or simply use wallet-free form 2. The same wallet rule binds any pool software that calls parameterless <code>getauxblock</code> directly (see Option C, Route B).</li>
+</ul>
+<p>Stuck at this test? The contact at the bottom of this page is where a stuck newcomer should ask — include your height, peer count, <code>mnsync status</code> output, and the exact error the test returned.</p>
+<p>With the snapshot you still have the catch-up sync described in step 2. Full sync from zero takes several hours — leave it alone while it works.</p>
+<h2>8. Point your pool at it</h2>
+<p><b>Option A — stratum proxy (recommended, no merged-mining support needed).</b></p>
+<p><b>If you ran <code>pool-setup.sh</code>, this is already done</b> — the script downloads the proxy, checks its SHA256 (section "How the proxy works"), and places every file at exactly the paths below. Skip to the <code>PAYOUT_ADDRESS</code> note and section 8A.</p>
+<p><b>Manual install — every step, in order.</b> The service file expects the proxy at <code>/opt/shitcoin-stratum-proxy/shitcoin-stratum-proxy.py</code> and its config at <code>/etc/shitcoin-stratum-proxy/proxy.conf</code>; use exactly those paths or the service will not start:</p>
+<pre><code>
+# 1. download all three files (URLs in "How the proxy works" above)
+cd /tmp
+wget https://shitcoinbtc.xyz/downloads/shitcoin-stratum-proxy.py
+wget https://shitcoinbtc.xyz/downloads/proxy.conf.example
+wget https://shitcoinbtc.xyz/downloads/shitcoin-stratum-proxy.service.example
+sha256sum shitcoin-stratum-proxy.py   # must print 4ace8e29f66578cdf9ae6de2491f2eb564ae2d1efe02358bf651f2e10396c18d
+
+# 2. create the directories the layout needs
+sudo install -d -m 0755 /opt/shitcoin-stratum-proxy
+sudo install -d -m 0755 /etc/shitcoin-stratum-proxy
+sudo install -d -o shitcoin -g shitcoin -m 0755 /var/log/shitcoin-stratum-proxy
+sudo install -d -o shitcoin -g shitcoin -m 0700 /var/lib/shitcoin-stratum-proxy/spool
+
+# 3. place the files at the exact paths the service uses
+sudo install -m 0755 shitcoin-stratum-proxy.py /opt/shitcoin-stratum-proxy/shitcoin-stratum-proxy.py
+sudo cp proxy.conf.example /etc/shitcoin-stratum-proxy/proxy.conf
+sudo cp shitcoin-stratum-proxy.service.example /etc/systemd/system/shitcoin-stratum-proxy.service
+
+# 4. set your payout address (the one required edit)
+sudo nano /etc/shitcoin-stratum-proxy/proxy.conf   # set PAYOUT_ADDRESS=shit1qYOUR...
+sudo chown shitcoin:shitcoin /etc/shitcoin-stratum-proxy/proxy.conf
+sudo chmod 600 /etc/shitcoin-stratum-proxy/proxy.conf
+
+# 5. start it
+sudo systemctl daemon-reload
+sudo systemctl enable --now shitcoin-stratum-proxy
+journalctl -u shitcoin-stratum-proxy -f   # watch shares/blocks
+</code></pre>
+<p>The shipped <code>proxy.conf.example</code> already carries the correct submission-protection values — <code>SPOOL_DIR=/var/lib/shitcoin-stratum-proxy/spool</code>, <code>SUBMIT_RETRIES=3</code>, <code>SUBMIT_BACKOFF_SECS=2</code>, <code>SPOOL_REPLAY_SECS=60</code>, <code>ALARM_CMD=</code> (empty = no hook; the log/stderr/<code>ALARM.txt</code> alarm is always on) — leave them as they are and complete section 8A's checks. The spool directory must stay owned by the service user (<code>shitcoin</code>) with mode <code>0700</code>: anyone who can write it can forge or delete found-block entries and alarms. The proxy takes its payout from <code>PAYOUT_ADDRESS</code> in <code>proxy.conf</code> — it has no <code>--payout</code> command-line flag; <code>--payout</code> belongs to <code>pool-setup.sh</code>, which writes <code>PAYOUT_ADDRESS</code> for you.</p>
+<p>Then point any stock stratum miner at <code>127.0.0.1:3333</code> (or, if miners are remote, set <code>LISTEN_HOST</code> in <code>proxy.conf</code> to your box's address and firewall the port to your miners only — see the stratum security notes). That is the whole integration.</p>
+<p><b>Option B — your own pool software via node RPC.</b> This is the hardest path. Read all of it before you start: every warning below is a way an outside pool has already hashed happily while producing nothing, or lost a block it found.</p>
+<p><b>WARNING — do NOT use <code>getblocktemplate</code>.</b> On this daemon, <code>getblocktemplate</code> returns <b>no AuxPoW data at all</b> — no chain ID, no aux target, nothing to commit into a Bitcoin coinbase. A pool built on <code>getblocktemplate</code> will hash forever and can never produce a valid SHIT block, and nothing will error to tell you so. You must drive the AuxPoW RPCs below instead.</p>
+<p><b>A real Bitcoin parent chain is required.</b> ShitcoinBtc is merge-mined only: every SHIT block must carry valid AuxPoW anchored in a real Bitcoin block header whose coinbase commits to the SHIT template. That means your own synced Bitcoin Core node to build parents against (the stratum proxy in Option A skips this only because it builds a synthetic parent and earns SHIT only). Standalone SHIT block templates are rejected by consensus.</p>
+<p><b>The integration contract:</b></p>
+<ul>
+<li><b>Get work:</b> <code>createauxblock &lt;your payout address&gt;</code> — wallet-free, the recommended form — <b>or</b> parameterless <code>getauxblock</code>, which is a wallet RPC and works <b>only</b> with exactly one wallet loaded on the daemon, or with <code>-rpcwallet=&lt;wallet file&gt;</code> naming one on every call. Zero or 2+ wallets with no <code>-rpcwallet</code> fails with <code>-19</code>.</li>
+<li><b>Check every template:</b> it must contain <code>"chainid": 29</code>. If it does not, stop — you are on the wrong daemon/build (see the section 7 acceptance test).</li>
+<li><b><code>target</code> vs <code>_target</code>:</b> the daemon returns the submit target <b>only</b> as <code>_target</code>. Use <code>_target</code> <b>verbatim — byte for byte exactly as sent, never reversed, never byte-swapped</b>. A field named <code>target</code> does not exist in the daemon's reply; it exists only when the yiimp adapter (Option C) adds it, and the adapter adds it by copying <code>_target</code> verbatim. Software that reads a missing <code>target</code> compares against empty/zero data and never submits — silently.</li>
+<li><b>Submit:</b> <code>submitauxblock &lt;hash&gt; &lt;auxpow&gt;</code>, with the hash from the template the AuxPoW was built for. Acceptance is the reply <code>result: true</code> exactly. <code>result: false</code>, or any error reply, is a <b>failure</b>, never a success.</li>
+<li><b>Templates die on every tip change — refresh is REQUIRED.</b> The daemon clears its aux-template cache on every tip change (about every 30 seconds). Submitting work built on the previous tip's template fails with <code>-8</code> "block hash unknown" — locally; the network never sees it. Wire the daemon's <code>blocknotify</code> to your software's refresh, in <code>syscoin.conf</code>, exactly like this, and restart the daemon:
+<pre><code>blocknotify=/path/to/your-refresh-command %s</code></pre>
+<code>%s</code> is replaced by the new block hash. Your refresh must drop the cached aux template and fetch a fresh one. Test it: after the next block lands, your software must be working from the new tip, not the old one.</li>
+<li><b>Protect every find:</b> spool each found block to disk before submitting, alarm on submission failure, and follow the retry semantics in section 8A — a found solution can only ever be re-submitted as the identical payload; it can never be moved onto a fresh template.</li>
+</ul>
+<p>If your software cannot do merged mining at all, use Option A instead — that is what the proxy is for.</p>
+<p><b>Option C — yiimp, using the yiimp adapter package.</b></p>
+<p>If your pool runs yiimp, do not point vanilla yiimp straight at the node. Vanilla yiimp and the v5.0.9 daemon nearly agree on AuxPoW, but three mismatches silently stop a yiimp pool from ever producing a SHIT block: yiimp reads a <code>target</code> field as its submit trigger, while the daemon returns that value only as <code>_target</code>, so yiimp ends up comparing against nothing; yiimp calls parameterless <code>getauxblock</code>, a wallet RPC that fails with <code>-19</code> whenever the daemon does not have exactly one wallet loaded; and the daemon clears its aux-template cache on every tip change (about every 30 seconds), so a submission for a template from a previous tip fails with <code>-8</code> "block hash unknown". The adapter package fixes all three. Download it here: <a href="https://shitcoinbtc.xyz/downloads/shit-yiimp-adapter-bundle.zip">https://shitcoinbtc.xyz/downloads/shit-yiimp-adapter-bundle.zip</a> — unpack it and follow its README. Patched yiimp on Route B below is the exception to the first sentence: it does point straight at the daemon, after the patches below. Your node must already pass the acceptance test in section 7 before either route below will work — use the <code>createauxblock &lt;your payout address&gt;</code> form of that test if your daemon runs wallet-free, because plain <code>getauxblock</code> needs exactly one wallet loaded.</p>
+<p><b>Verify the bundle before you unpack it.</b> Download <code>SHA256SUMS.txt</code> from the downloads page <i>separately</i> and check the zip against it: <code>sha256sum shit-yiimp-adapter-bundle.zip</code> must match the <code>shit-yiimp-adapter-bundle.zip</code> entry in <code>https://shitcoinbtc.xyz/downloads/SHA256SUMS.txt</code>. The expected hash for the current bundle is 226d744166466d8ea45517dc1da034b95c629c325fae248004f7a7a4761d6b52 (the RT-2 republication of 2026-10-27, freeze v2; see the kit CHANGELOG for the bundle history: R2/R3 build fc6e4b4e before it, f8bdee77 before that). Inside that bundle, the adapter itself is <code>shit-yiimp-adapter.py</code> sha256 <code>814a8ff2eb426bd3e2c023e6abfdd89b5f0b661a9ff9193fe5c51ca856bfa660</code> (inside bundle 226d744166466d8ea45517dc1da034b95c629c325fae248004f7a7a4761d6b52) — kit hash, this citation pair, and the served file must all agree at deploy time. Do <b>not</b> trust the <code>SHA256SUMS</code> file inside the zip by itself — a sums file shipped inside the thing it claims to verify proves nothing about the zip you downloaded; the check that counts is against the sums file served separately on the downloads page.</p>
+<p>Pick one of the two routes in the package:</p>
+<p><b>Route A — the shim (recommended, no yiimp rebuild).</b> The package's <code>shit-yiimp-adapter.py</code> is the shim: a small adapter that sits between yiimp and the daemon. It is not the stratum proxy in Option A — that proxy is a different program, for pool software that cannot do merged mining. Copy <code>adapter.conf.example</code> to <code>adapter.conf</code> and set <code>payout_address</code> to your pool's SHIT payout address — the shim will not start without it, because every template it asks the daemon for pays that address. Then change only the SHIT coin's RPC connection in yiimp: point it at the shim (default <code>127.0.0.1:19332</code>) instead of the daemon (default <code>127.0.0.1:8370</code>). The shim adds <code>target</code> to every aux-template reply, copied from <code>_target</code> exactly as the daemon sent it, byte for byte — do not reverse it. It also translates yiimp's <code>getauxblock</code> calls into wallet-free forms: a call with no arguments becomes <code>createauxblock</code> with your payout address, and a call carrying a block hash and AuxPoW becomes <code>submitauxblock</code>. Everything else is forwarded to the daemon, including the daemon's own errors (for example <code>nevm-data-not-found</code>), except two kinds of calls the shim handles itself without contacting the daemon: dangerous, wallet and stop methods (such as <code>stop</code>, spend methods, and anything starting with <code>wallet</code>), which it blocks locally with <code>-32601</code>, and <code>getauxblock</code> calls in any other shape, which it rejects locally with <code>-32602</code>.</p>
+<p><b>Route A submission protection — set these in <code>adapter.conf</code></b> (these are the adapter's real key names; do not invent others). First create its spool directory, before the adapter's first start, owned by the user the adapter service runs as, mode <code>0700</code> — the spool and its alarm marker are the only durable evidence of a found block:</p>
+<pre><code>
+sudo install -d -m 0700 -o shitcoin /var/lib/shit-yiimp-adapter/spool
+sudo install -d -m 0755 /var/log/shit-yiimp-adapter
+</code></pre>
+<pre><code>
+# in adapter.conf, [adapter] section:
+spool_dir = /var/lib/shit-yiimp-adapter/spool
+submit_retry_attempts = 3
+submit_retry_delay_seconds = 1
+submit_retry_refresh = true
+spool_replay_interval_seconds = 300
+# alarm_file defaults to &lt;spool_dir&gt;/ALARM_SUBMISSION_FAILED when unset
+</code></pre>
+<p><b>Warning:</b> <code>submit_retry_refresh</code> is a <b>boolean</b> — <code>true</code> or <code>false</code>, never a number. Writing a number there instead of <code>true</code> reads as <code>false</code> and silently disables the refresh between retries (that exact mistake was published in an earlier draft of this guide; do not repeat it). With the values above, a found block is spooled to disk before submission, retried a bounded number of times, replayed on startup <b>and</b> every 300 seconds, and alarmed on final failure — see section 8A.</p>
+<p>For Route A, <code>blocknotify</code> is <b>REQUIRED</b>. Add the adapter package's <code>syscoin.conf.snippet</code> line to <code>syscoin.conf</code> and restart the daemon. The snippet's recommended line, verbatim (create the log directory first, as above — the line logs its output and its failures instead of swallowing them):</p>
+<pre><code>blocknotify=curl -sS --max-time 5 "http://127.0.0.1:19332/notify?hash=%s" &gt;&gt;/var/log/shit-yiimp-adapter/blocknotify.log 2&gt;&amp;1 || echo "adapter blocknotify FAILED for block %s (curl exit $?)" &gt;&gt;/var/log/shit-yiimp-adapter/blocknotify.log</code></pre>
+<p>(The snippet's Option B touches a signal file instead and requires <code>notify_file = /tmp/shit-yiimp-adapter.tip</code> in <code>adapter.conf</code>. Use one form, not both.)</p>
+<p><b>Critical:</b> the adapter poke above refreshes <b>only the adapter</b> — it records the tip change in the adapter. It does <b>not</b> refresh yiimp: yiimp will keep serving stale work until its own refresh notices the new tip. <b>Yiimp ALSO needs its own <code>blocknotify</code> / work-refresh wiring</b> (yiimp's own blocknotify helper, per your yiimp install). Because <code>syscoind</code> takes only one <code>blocknotify</code> command, chain both in the single line — adapter poke <b>and</b> yiimp's own notify, with <code>;</code> between them, exactly as the combined example at the bottom of the snippet shows. Replacing yiimp's own line with only the adapter poke leaves yiimp stale; wiring only yiimp's line leaves the adapter uninformed. A setup missing either half is not finished — see section 8A.</p>
+<p><b>Route B — patch yiimp and rebuild.</b> The package's <code>yiimp-patch/</code> folder carries the same fixes as changes to yiimp's stratum source, for a checkout of <code>tpruvot/yiimp</code>, branch <code>next</code> — and for forks whose <code>stratum/coind_template.cpp</code> still contains the stock <code>coind_getauxblock</code>. <code>0001-stratum-auxblock-underscore-target.patch</code> teaches yiimp to read <code>_target</code> (stored exactly as sent, never reversed). Patch 0001 alone does not remove the wallet requirement: the parameterless <code>getauxblock</code> call still runs, so the daemon must have exactly one wallet loaded, or be started with <code>-rpcwallet=&lt;wallet file&gt;</code>, for that call to work. The optional <code>0002-stratum-createauxblock-variant.patch</code>, applied on top of the first, makes only the template fetch wallet-free: when the SHIT coin's <code>master_wallet</code> payout address in yiimp (<code>coins.master_wallet</code>) is valid, the fetch becomes <code>createauxblock</code> with that address, and on any failure it falls back to the stock <code>getauxblock</code> call. Verify the effective payout address in the stratum log and with <code>createauxblock</code> by hand before relying on it, because yiimp can replace <code>master_wallet</code> at start-up. Submission does not change: it stays the stock <code>getauxblock(hash, auxpow)</code> call. Apply them in your yiimp checkout with <code>patch -p1</code> from the <code>stratum</code> directory, in the order the patch folder's own README sets out (<code>git apply</code> works identically), then rebuild stratum with <code>make</code> (also <code>make -C ../blocknotify</code> if needed). Route A needs no rebuild and closes the same three gaps, so use Route B only if you would rather carry the fix in yiimp itself.</p>
+<p>For Route B, wire <code>blocknotify</code> straight to yiimp — do not use the adapter snippet, because no shim is running to poke. Use yiimp's own <code>blocknotify</code> helper, as the patch folder's README sets out: <code>blocknotify=/var/stratum/blocknotify 127.0.0.1:&lt;STRATUM_TCP_PORT&gt; &lt;SHIT_COIN_ID&gt; %s</code> in the SHIT daemon's <code>syscoin.conf</code>, then restart the daemon. The two placeholders, plainly: <code>&lt;STRATUM_TCP_PORT&gt;</code> is the TCP port <b>your yiimp stratum itself listens on</b> for the SHIT coin (the port miners connect to — for example <code>3333</code> if that is the port you configured for SHIT in yiimp); <code>&lt;SHIT_COIN_ID&gt;</code> is the numeric <code>id</code> of the SHIT row in <b>yiimp's <code>coins</code> database table</b> (look it up in yiimp's admin / the <code>coins</code> table — it is yiimp's internal ID for this coin, not a ShitcoinBtc number). A worked example with example values filled in: <code>blocknotify=/var/stratum/blocknotify 127.0.0.1:3333 42 %s</code>. The main package README describes the same wiring as the chained form without the adapter poke.</p>
+<p>Whichever route you picked, verify it the way yiimp will use it. On Route A, ask for work <b>through the shim</b>:</p>
+<pre><code>
+curl -s http://127.0.0.1:19332/ -H 'Content-Type: application/json' \
+  -d '{"jsonrpc":"1.0","id":1,"method":"getauxblock","params":[]}'
+</code></pre>
+<p>The reply must contain all three of these: a <code>"target"</code> field, <code>"chainid": 29</code>, and the original <code>"_target"</code> field — and <code>"target"</code> must be identical to <code>"_target"</code>, character for character. That result — <code>getauxblock</code> through the shim returning <code>"chainid": 29</code> with <code>target</code> present — is the proof that templates are flowing and yiimp has a real target to trigger submissions on. On Route B, make the same check against the daemon the way your patched yiimp does, and confirm the template still carries <code>"chainid": 29</code> and that stratum is holding a non-empty target for SHIT, identical to the daemon's <code>_target</code>.</p>
+<h2>8A. REQUIRED: never lose a found block silently</h2>
+<p><b>Why this section exists.</b> On 2026-10-26 the chain stalled for about 90 minutes after a pool found the next block twice and neither find ever reached the network. The daemon clears its aux-template cache on <b>every tip change</b>. A submission made against the previous tip's template fails locally with <code>-8 "block hash unknown"</code> — it never enters the network, so nobody else can see that anything went wrong. The software in that path had no retry, no spool, and no alarm, so the found blocks were lost silently and permanently. The settings below are therefore <b>required, not optional</b>, on every pool setup. A setup that skips any of them is not finished, even if the section 7 acceptance test passes.</p>
+<p><b>The one rule about found blocks — read this before the settings.</b> A found block is bound to the work it was found on: a proxy block to its prevhash, an AuxPoW solution to its template's hash, coinbase and prevhash. It can <b>only ever</b> be submitted — and re-submitted — as the <b>identical payload</b>: the same block hex, the same <code>(hash, auxpow)</code> pair. No software can move a found solution onto a fresh template, and none of ours tries. So "retry with refresh" does <b>not</b> mean rebuilding the solution on new work. It means: between attempts, the software re-checks the tip / template state (a cheap <code>getblockcount</code> probe on the proxy; a <code>createauxblock</code> liveness check on the adapter) to learn whether the original template is still live and whether the tip has moved — while only ever re-sending the same payload. If the tip has moved to or past your block's height, <b>that block can never land</b>: the height now belongs to whatever block the chain took instead. The spool and the alarm exist so that loss is <b>loud, on disk, and impossible to miss</b> — not so it can be undone. What you do in that case is step 4 below.</p>
+<p><b>1. Tip-change refresh — REQUIRED, on every path.</b></p>
+<ul>
+<li><b>Stratum proxy (Option A / fast path):</b> the proxy refreshes itself — its watch loop polls the tip every 5 seconds and rebuilds the job the moment the tip changes. There is <b>no</b> <code>blocknotify</code> line for the proxy: it has no notify endpoint, and a <code>blocknotify=</code> line in <code>syscoin.conf</code> pointing at it would do nothing. Verify the loop is alive instead: after the next block arrives, the proxy log must show <code>new tip &lt;height&gt; (was &lt;old height&gt;): rebuilding job</code>. If that line never appears after a tip change, your setup is not finished — do not mine on it.</li>
+<li><b>yiimp adapter (Option C, Route A):</b> add the adapter snippet's <code>blocknotify</code> line to <code>syscoin.conf</code>, exactly as given in Option C, and restart the daemon. <b>And</b> wire yiimp's own <code>blocknotify</code> / work-refresh as well, chained with <code>;</code> in the same single line: the adapter poke alone does <b>not</b> refresh yiimp, and yiimp alone does not inform the adapter. Both halves are required.</li>
+<li><b>Patched yiimp (Option C, Route B):</b> wire <code>blocknotify</code> straight to yiimp's own <code>blocknotify</code> helper, exactly as described in Option C.</li>
+<li><b>Your own pool software (Option B):</b> set the daemon's <code>blocknotify</code> to a command that makes your software drop its cached aux template and fetch a fresh one on every tip change, in <code>syscoin.conf</code>:
+<pre><code>blocknotify=/path/to/your-refresh-command %s</code></pre>
+<code>%s</code> is replaced by the new block hash. Test it: after the next block, your software must be working from the new tip, not the old one.</li>
+</ul>
+<p><b>2. Spool found blocks to disk — REQUIRED.</b> A found block is written to disk <i>before</i> its first submission, and the spool entry is removed only after the daemon confirms acceptance. A proxy or adapter that is off, hung, or restarted at the wrong moment cannot lose it that way. Use exactly these key names — they are the keys the shipped programs actually read; any other name is ignored silently:</p>
+<pre><code>
+# stratum proxy — in proxy.conf (pool-setup.sh and proxy.conf.example
+# already write exactly this; check yours matches)
+SPOOL_DIR=/var/lib/shitcoin-stratum-proxy/spool
+SUBMIT_RETRIES=3
+SUBMIT_BACKOFF_SECS=2
+SPOOL_REPLAY_SECS=60
+ALARM_CMD=
+</code></pre>
+<p>On the proxy: <code>SUBMIT_RETRIES</code> is the number of retries <i>after</i> the first attempt, always of the same payload; the spool is replayed on startup <b>and</b> every <code>SPOOL_REPLAY_SECS</code> (60 seconds). <code>ALARM_CMD</code> is an optional hook (see step 3) — leave it empty if you have no hook; the alarm itself is not optional. Create the spool directory owned by the service user, mode <code>0700</code> (step 2 of the manual Option A install does this): <code>sudo install -d -o shitcoin -g shitcoin -m 0700 /var/lib/shitcoin-stratum-proxy/spool</code>. Never point the spool at <code>/tmp</code> — a reboot must not erase a found block, and anyone who can write the spool directory can forge or delete found-block entries and alarms.</p>
+<pre><code>
+# yiimp adapter — in adapter.conf, [adapter] section (the bundle's
+# adapter.conf.example already carries exactly this)
+spool_dir = /var/lib/shit-yiimp-adapter/spool
+submit_retry_attempts = 3
+submit_retry_delay_seconds = 1
+submit_retry_refresh = true
+spool_replay_interval_seconds = 300
+# alarm_file defaults to &lt;spool_dir&gt;/ALARM_SUBMISSION_FAILED when unset
+</code></pre>
+<p>On the adapter: the spool is replayed on startup <b>and</b> every <code>spool_replay_interval_seconds</code> (300 seconds), and every replay first checks each entry against the chain, so a block that landed despite a lost reply resolves itself instead of re-alarming forever. Create its directory the same way: <code>sudo install -d -m 0700 -o &lt;adapter-service-user&gt; /var/lib/shit-yiimp-adapter/spool</code>. And repeat the warning from Option C because it already bit once: <code>submit_retry_refresh</code> is a <b>boolean</b> (<code>true</code>/<code>false</code>). A numeric value reads as <code>false</code> and disables the refresh.</p>
+<p><b>3. Submission-failure alarm — REQUIRED.</b> Every finally-failed submission must make noise a human will notice — it must never exist only as a quiet log line nobody reads. Both programs alarm by default; your job is to confirm the alarm surface exists and test it once (for example by pointing a test copy at a stopped daemon) before you trust the setup:</p>
+<ul>
+<li><b>Proxy:</b> a <code>*** ALARM *** SUBMISSION FAILED height=...</code> line in the log and on stderr, an <code>ALARM.txt</code> file in the spool directory, and <code>spool_pending=&lt;N&gt;</code> in the proxy's 5-minute <code>stats:</code> log line so a stuck spool shows up in normal monitoring. <code>ALARM_CMD</code> in <code>proxy.conf</code> optionally runs a command of yours (mail/webhook script — the alarm text arrives on its stdin). The hook fires at most once per spooled block, then only again on escalation intervals of at least an hour, so a permanently dead block cannot page you every minute; a buried entry is eventually dead-lettered to a <code>.dead</code> file — kept as evidence, no longer submitted or alarmed. <code>ALARM.txt</code> is rotated to <code>ALARM.txt.resolved</code> when its block is later confirmed.</li>
+<li><b>Adapter:</b> an <code>ALARM_SUBMISSION_FAILED</code> error log event and an on-disk marker file (<code>ALARM_SUBMISSION_FAILED</code> in the spool directory by default) that lists <b>all</b> pending failed hashes. Watch also for <code>stale_template_submit_-8</code>, <code>submit_result_not_true</code> (the daemon replied without a true result — a failure, spool kept) and <code>submit_retry_aborted_template_dead</code> (retry stopped early because the refresh proved the template dead). Point any file monitor at the marker file.</li>
+</ul>
+<p><b>4. When a found block still cannot land — the operator procedure.</b> Retrying is bounded (proxy: <code>SUBMIT_RETRIES</code>; adapter: <code>submit_retry_attempts</code>) and always re-sends the identical payload, aborting early once the tip is known to have moved past the block's height. If it still fails:</p>
+<ol>
+<li><b>Check the alarm first.</b> Proxy: read <code>/var/lib/shitcoin-stratum-proxy/spool/ALARM.txt</code> and count the spool entries. Adapter: read the <code>ALARM_SUBMISSION_FAILED</code> marker in its spool directory — it names every pending failed hash.</li>
+<li><b>Confirm against the chain.</b> Ask the daemon for the block at that height — <code>syscoin-cli -datadir=/home/shitcoin/.syscoin getblockhash &lt;height&gt;</code> — and compare it with your found block's hash (on the adapter you can also ask <code>getblock &lt;your hash&gt;</code>). If the hash at that height is yours, your block <i>did</i> land (a lost reply, not a lost block); the spool entry will resolve on the next replay — do not resubmit by hand. If a <i>different</i> hash sits at that height, your block lost that height permanently.</li>
+<li><b>Move on — loudly, not silently.</b> A block whose height is gone can never be recovered, by you or by us: leave the spool entry / <code>.dead</code> file and the alarm record on disk as the evidence, fix the cause (usually the refresh wiring in step 1) before you mine on, and go back to mining the current tip. Do not keep re-submitting the dead payload, and do not try to attach the solution to a new template — that is cryptographically impossible, not a setting you missed.</li>
+</ol>
+<p><b>One defect to know about in proxy builds before this fix:</b> an older proxy counted a daemon-<i>rejected</i> <code>submitblock</code> as a found block and told the miner the share succeeded. A rejection is a failure, never a success: in the current proxy a rejection logs <code>submitblock attempt ... REJECTED: ...</code>, increments <code>submit_failures</code> in the stats line, and the miner is told the submission failed. Ambiguous results (<code>inconclusive</code> / <code>duplicate</code>) are only counted as accepted after the proxy confirms the block's hash with <code>getblockhash</code> at that height. If your proxy log shows anything else next to a submission, treat the block as <b>not submitted</b> and follow step 4. Only run the current proxy build (SHA256 in "How the proxy works").</p>
+<h2>9. Troubleshooting</h2>
+<p><b>Proxy says &quot;payout address&quot; error on start.</b></p>
+<p><code>PAYOUT_ADDRESS</code> must be a valid <code>shit1...</code> address. Get one from any ShitcoinBtc</p>
+<p>wallet (node wallet, web wallet, or browser extension).</p>
+<p><b>Proxy finds shares but no blocks.</b></p>
+<p><b>Check submission health FIRST — before you decide this is just luck.</b> Shares climbing only proves miners are connected and hashing. It proves nothing about whether found blocks are being submitted, and "shares but no blocks" is exactly what a pool looks like while every submission is being rejected (that failure froze the chain for about 90 minutes on 2026-10-26 while the pool believed it was healthy). Work this checklist, in order:</p>
+<ol>
+<li><b>Alarm files:</b> does <code>/var/lib/shitcoin-stratum-proxy/spool/ALARM.txt</code> exist? Read it. (Adapter/yiimp: read the <code>ALARM_SUBMISSION_FAILED</code> marker in the adapter spool directory instead.) An alarm file present means a found block already failed to submit.</li>
+<li><b>Spool depth:</b> <code>ls /var/lib/shitcoin-stratum-proxy/spool/</code> — any <code>.json</code> entries are found blocks still waiting for confirmed acceptance; <code>.dead</code> files are blocks that were buried and can never land (see section 8A step 4). The proxy's 5-minute <code>stats:</code> log line reports the same number as <code>spool_pending=&lt;N&gt;</code>, alongside <code>submit_failures=&lt;N&gt;</code> — both must be 0 on a healthy pool.</li>
+<li><b>Rejection log strings:</b> grep the proxy log / journal for the real strings the current build writes: <code>SUBMISSION FAILED</code>, <code>submitblock attempt</code> followed by <code>REJECTED</code> or <code>FAILED</code>, and <code>*** ALARM ***</code> (<code>journalctl -u shitcoin-stratum-proxy | grep -E 'SUBMISSION FAILED|REJECTED|ALARM'</code>). On the adapter, grep for <code>stale_template_submit_-8</code>, <code>ALARM_SUBMISSION_FAILED</code>, <code>submit_result_not_true</code> and <code>submit_retry_aborted_template_dead</code>. In the daemon's <code>debug.log</code>, a stale submission shows as <code>-8</code> "block hash unknown".</li>
+<li><b>Confirm against the chain:</b> for any height you believe you found, <code>getblockhash &lt;height&gt;</code> (section 8A step 4) tells you whose block the chain actually took.</li>
+</ol>
+<p>Only when the alarm files are absent, <code>spool_pending=0</code>, <code>submit_failures=0</code> and none of those log strings appear is "no blocks yet" the normal explanation: blocks arrive at the network difficulty (CPU-mineable, but still probabilistic), so a small pool can hash a long time between finds. If shares stay at zero instead, your miners are not connecting (check the port/firewall and <code>LISTEN_HOST</code>).</p>
+
+<p><b>Proxy exits with &quot;nevm template&quot; errors.</b></p>
+<p><code>sysgeth</code> must be running — the proxy fetches NEVM templates from it over ZMQ (<code>tcp://127.0.0.1:9377</code>). The daemon launches <code>sysgeth</code> itself (step 4): check that the <code>sysgeth</code> binary sits beside <code>syscoind</code> in <code>/usr/local/bin</code>, that <code>syscoin.conf</code> carries the <code>zmqpubnevm</code> and <code>gethcommandline</code> lines from step 5, and that <code>syscoind</code> is running. Do not start a separate <code>sysgeth</code> service.</p>
+<p><b>Blocks fail with <code>nevm-data-not-found</code>.</b></p>
+<p>The daemon passes <code>--nevmpub</code> from <code>zmqpubnevm</code> in <code>syscoin.conf</code>. Check that <code>syscoin.conf</code> contains <code>zmqpubnevm=tcp://127.0.0.1:9377</code> and all the <code>gethcommandline</code> lines from step 5 (including <code>gethcommandline=--syscoin.statebootstrap.disable</code>), restart <code>syscoind</code> (it manages <code>sysgeth</code>), and check the running command line with <code>ps aux | grep &#x27;[s]ysgeth&#x27;</code> — <code>--nevmpub tcp://127.0.0.1:9377</code> must be there.</p>
+<p><b>Node or proxy rejects blocks, or the node will not follow the chain past 88,000.</b></p>
+<p>You are running software from before the fork. The node must be v5.0.9 (step 3) and the proxy must be the current file (SHA256 <code>4ace8e29f66578cdf9ae6de2491f2eb564ae2d1efe02358bf651f2e10396c18d</code>, see &quot;How the proxy works&quot;). Anything older stamps or expects AuxPoW chain ID 16; the chain has used chain ID 29 since block 88,000.</p>
+<p><b>Stuck at the same height after a restart, or never getting past ~48,000.</b></p>
+<p>Do not keep wiping the data folders — that just replays the failure. Check these first:</p>
+<pre><code>
+ps aux | grep &#x27;[s]ysgeth&#x27;                                  # helper alive?
+grep -E &quot;ERROR|nevm-&quot; /home/shitcoin/.syscoin/debug.log | tail -30     # exact reject reason
+tail -60 /home/shitcoin/.syscoin/sysgeth.log                           # helper-side errors
+dmesg | grep -i oom | tail -10                            # killed for memory?
+free -h                                                   # how much RAM?
+</code></pre>
+<ul>
+<li>If <code>dmesg</code> shows the OOM killer took <code>sysgeth</code>, your box needs more RAM (see specs above).</li>
+<li>If <code>ps</code> shows no <code>sysgeth</code>, the daemon did not launch it: check that the <code>sysgeth</code> binary sits beside <code>syscoind</code> in <code>/usr/local/bin</code>, that <code>syscoin.conf</code> carries the <code>zmqpubnevm</code> and <code>gethcommandline</code> lines from step 5, and check the <code>syscoind</code> service: <code>sudo systemctl status syscoind</code>. There is no separate <code>sysgeth</code> service with this build (step 4).</li>
+</ul>
+<ul>
+<li>If the log shows <code>nevm-response-not-found</code>, the helper timed out — again, usually a slow/small machine.</li>
+<li>Once you know the cause: fix it, wipe <code>/home/shitcoin/.syscoin</code> (blocks, chainstate — the daemon-managed <code>sysgeth</code> keeps its data in <code>/home/shitcoin/.syscoin/geth</code>, so it is wiped with it), restore the snapshot from step 2, and let it sync without restarting anything halfway.</li>
+</ul>
+<p><b>A found block never appeared on the chain, or submissions fail with <code>-8 &quot;block hash unknown&quot;</code>.</b></p>
+<p>Work section 8A step 4, in order — do not improvise a resubmission scheme:</p>
+<ol>
+<li><b>Alarm files first:</b> read <code>/var/lib/shitcoin-stratum-proxy/spool/ALARM.txt</code> (proxy) or the <code>ALARM_SUBMISSION_FAILED</code> marker in the adapter spool directory (yiimp). If a submission failed with no alarm, the alarm setup is broken — fix that before mining again.</li>
+<li><b>Spool state:</b> is the found block still a <code>.json</code> entry in the spool directory (waiting / being replayed), or already dead-lettered to a <code>.dead</code> file (buried — kept as evidence, never submitted again)? Check the proxy's <code>stats:</code> line for <code>spool_pending=</code> and <code>submit_failures=</code>.</li>
+<li><b>Confirm against the chain:</b> <code>sudo -u shitcoin syscoin-cli -datadir=/home/shitcoin/.syscoin getblockhash &lt;height&gt;</code>. If it returns <i>your</i> block's hash, the block landed — a lost reply, not a lost block; the spool entry resolves itself on replay, do not resubmit by hand. If it returns a different hash, the tip moved past your height and the block can never land.</li>
+<li><b>If the height is gone:</b> the loss is permanent and no retry can undo it — a found solution can only ever be re-submitted as the identical payload, and only while its height is still open; it can never be moved onto a fresh template. Leave the spool/alarm evidence on disk, fix the refresh wiring (section 8A step 1) that let the submission go stale, and mine the current tip. Restarting the proxy/adapter is still useful — spool replay on startup resolves anything that <i>can</i> still resolve — but it will not resurrect a buried block, and it is not a substitute for steps 1–3.</li>
+</ol>
+<p><b><code>syscoind</code> fails to start.</b></p>
+<p><code>tail -30 /home/shitcoin/.syscoin/debug.log</code> — the reason is always in the last lines. Common: port 8369 already in use, or bad permissions on the datadir (<code>chown -R shitcoin:shitcoin</code>).</p>
+<p><b>Restored a snapshot but the node rolls back or stalls.</b></p>
+<p>The daemon-managed <code>sysgeth</code> keeps its data in <code>/home/shitcoin/.syscoin/geth</code>. If you</p>
+<p>restored a snapshot and the node rolls back or stalls, stop <code>syscoind</code>, delete</p>
+<p><code>/home/shitcoin/.syscoin/geth</code> (the helper data only — not the whole <code>/home/shitcoin/.syscoin</code>), and restart.</p>
+<p>A stale helper database makes <code>syscoind</code> roll the chain back to match it on startup.</p>
+<p><b>Upgrading later.</b></p>
+<p>Stop the service, replace the binaries in <code>/usr/local/bin</code>, start the service. Never delete the datadir on upgrade. The current version is v5.0.9 — upgrade to that, from the downloads page only.</p>
+<hr>
+<p>Questions: the founder is reachable on Telegram as @JodieWanamaker. Include your node&#x27;s height, peer count, and the last 30 lines of <code>debug.log</code> — that is everything needed to diagnose it.</p></body></html>

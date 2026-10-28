@@ -1,0 +1,73 @@
+# shitcoin-stratum-proxy configuration.
+# Copy to /etc/shitcoin-stratum-proxy/proxy.conf and edit. Then:
+#   sudo systemctl enable --now shitcoin-stratum-proxy
+
+# Address/port the proxy listens on for stratum miners.
+# Keep on localhost unless your miners are on a trusted private network.
+# Stratum is cleartext -- never expose this port to the internet directly.
+LISTEN_HOST=127.0.0.1
+LISTEN_PORT=3333
+
+# YOUR payout address: every block the proxy finds pays its coinbase here.
+# Must be a shit1... (bech32 P2WPKH) address from your wallet.
+PAYOUT_ADDRESS=shit1qYOURPAYOUTADDRESShere
+
+# --- Node connection (the proxy's upstream) ---
+# Default: local node over RPC, cookie auth (created by syscoind automatically).
+NODE_RPC_URL=http://127.0.0.1:8370/
+NODE_COOKIE=/home/shitcoin/.syscoin/.cookie
+# ...or uncomment these two and leave NODE_COOKIE empty to use user/password:
+# NODE_RPC_USER=shitcoinrpc
+# NODE_RPC_PASS=your-rpc-password
+
+# --- NEVM template source ---
+# Your local sysgeth's ZMQ endpoint (it builds the NEVM block templates every
+# ShitcoinBtc block must commit to). Same box as sysgeth in the setup guide.
+NEVM_ZMQ=tcp://127.0.0.1:9377
+
+# --- Share difficulty ---
+# Start low (0.01-1). The proxy validates every share; vardiff retunes per
+# worker automatically toward ~1 share per 15 seconds.
+SHARE_DIFF=0.5
+VARDIFF=1
+
+# Rebuild the mining job this often (seconds) to refresh ntime/mempool.
+# The proxy also rebuilds instantly on every new chain tip.
+JOB_REFRESH_SECS=30
+
+# Optional log file. Also logs to stdout (journald when run as a service).
+LOG_FILE=/var/log/shitcoin-stratum-proxy/proxy.log
+
+# --- Submission safety: disk spool, bounded retry, failure alarm ---
+# Every block the proxy finds is written to the spool directory BEFORE it
+# is submitted, replayed on startup and every SPOOL_REPLAY_SECS, and only
+# removed after the daemon confirms acceptance. A block that still cannot
+# be submitted fires an alarm (log + stderr + ALARM.txt in the spool dir +
+# the optional ALARM_CMD hook).
+#
+# SPOOL_DIR must be an ABSOLUTE, persistent path. Do NOT leave a relative
+# default such as ./spool here: the shipped systemd unit
+# (shitcoin-stratum-proxy.service.example) sets no WorkingDirectory=, so
+# the service starts with / as its working directory and ./spool would
+# resolve to /spool -- the proxy then cannot create its spool and
+# exit-loops under systemd. Use the state directory below instead.
+#
+# The spool directory is part of the security model: anyone who can write
+# it can forge, suppress, or delete found-block entries and alarms.
+# Create it owned by the service user (User=shitcoin in the shipped unit)
+# with permissions 0700, and keep it that way:
+#   sudo install -d -o shitcoin -g shitcoin -m 0700 /var/lib/shitcoin-stratum-proxy/spool
+SPOOL_DIR=/var/lib/shitcoin-stratum-proxy/spool
+
+# Bounded retries after the first submission attempt (the SAME block is
+# resubmitted; a found block cannot be moved onto a fresh template).
+SUBMIT_RETRIES=3
+# Linear backoff base between attempts, in seconds (backoff x attempt).
+SUBMIT_BACKOFF_SECS=2
+# How often (seconds) the spool is replayed in the background.
+SPOOL_REPLAY_SECS=60
+# Optional hook run when a found block cannot be submitted; the alarm
+# text is passed on stdin. Fires at most once per spooled block, then
+# only again on >= 1 hour escalation intervals. Leave empty to disable.
+# Example: ALARM_CMD=/usr/local/bin/mail-alarm.sh
+ALARM_CMD=

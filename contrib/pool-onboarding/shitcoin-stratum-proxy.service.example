@@ -1,0 +1,17 @@
+[Unit]
+Description=ShitcoinBtc merged-mining stratum proxy
+After=network.target syscoind.service
+Wants=syscoind.service
+
+[Service]
+Type=simple
+User=shitcoin
+Group=shitcoin
+ExecStart=/usr/bin/python3 /opt/shitcoin-stratum-proxy/shitcoin-stratum-proxy.py /etc/shitcoin-stratum-proxy/proxy.conf
+Restart=always
+RestartSec=10
+# The proxy only needs loopback: node RPC, sysgeth ZMQ, and (usually) miners.
+# If your miners are remote, open the stratum port in your firewall yourself.
+
+[Install]
+WantedBy=multi-user.target
