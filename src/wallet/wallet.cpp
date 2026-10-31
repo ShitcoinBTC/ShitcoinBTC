@@ -3600,14 +3600,15 @@ void CWallet::SetupLegacyScriptPubKeyMan()
     AddScriptPubKeyMan(id, std::move(spk_manager));
 }
 
-const CKeyingMaterial& CWallet::GetEncryptionKey() const
+CKeyingMaterial CWallet::GetEncryptionKey() const
 {
-    // vMasterKey is GUARDED_BY(cs_wallet); hold the (recursive) mutex
-    // across the return. Callers use the reference transiently as an
-    // argument to EncryptSecret/DecryptKey. Newer clang
-    // (-Wthread-safety-reference-return) rejects returning the guarded
-    // member with no lock held; the ScriptPubKeyMan callers hold their
-    // own keystore locks, not cs_wallet.
+    // Return a copy: vMasterKey is GUARDED_BY(cs_wallet), and newer
+    // clang (-Wthread-safety-reference-return) rejects returning it by
+    // reference unless the caller provably holds cs_wallet -- the
+    // ScriptPubKeyMan callers hold their own keystore locks
+    // (cs_KeyStore / cs_desc_man) instead. Callers use the value
+    // transiently as an EncryptSecret/DecryptKey argument, so the
+    // copy is safe and cheap (per key operation, not a hot path).
     LOCK(cs_wallet);
     return vMasterKey;
 }
