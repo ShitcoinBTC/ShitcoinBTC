@@ -60,8 +60,17 @@ BOOST_AUTO_TEST_CASE(get_next_work_lower_limit_actual)
     unsigned int expected_nbits = 471240656U;
     BOOST_CHECK_EQUAL(CalculateNextWorkRequired(&pindexLast, nLastRetargetTime, chainParams->GetConsensus()), expected_nbits);
     // BOOST_CHECK(PermittedDifficultyTransition(chainParams->GetConsensus(), pindexLast.nHeight+1, pindexLast.nBits, expected_nbits));
-    // Test that reducing nbits further would not be a PermittedDifficultyTransition.
-    unsigned int invalid_nbits = expected_nbits-1;
+    // SHITCOIN: the pre-fork check (expected_nbits-1 must be rejected) no
+    // longer holds: since the per-block retarget fork at height 29196
+    // (pow.cpp), PermittedDifficultyTransition allows up to an 8x target
+    // move per block as a sanity bound, and this case sits at height
+    // 68544. The binding constraint is that bound itself (and the pow
+    // limit): the retarget output is permitted, a target beyond 8x the
+    // previous one is not.
+    BOOST_CHECK(PermittedDifficultyTransition(chainParams->GetConsensus(), pindexLast.nHeight+1, pindexLast.nBits, expected_nbits));
+    arith_uint256 old_target;
+    old_target.SetCompact(pindexLast.nBits);
+    unsigned int invalid_nbits = (old_target * 16).GetCompact();
     BOOST_CHECK(!PermittedDifficultyTransition(chainParams->GetConsensus(), pindexLast.nHeight+1, pindexLast.nBits, invalid_nbits));
 }
 
@@ -77,8 +86,13 @@ BOOST_AUTO_TEST_CASE(get_next_work_upper_limit_actual)
     unsigned int expected_nbits = 0x1d00e1fdU;
     BOOST_CHECK_EQUAL(CalculateNextWorkRequired(&pindexLast, nLastRetargetTime, chainParams->GetConsensus()), expected_nbits);
     // BOOST_CHECK(PermittedDifficultyTransition(chainParams->GetConsensus(), pindexLast.nHeight+1, pindexLast.nBits, expected_nbits));
-    // Test that increasing nbits further would not be a PermittedDifficultyTransition.
-    unsigned int invalid_nbits = expected_nbits+1;
+    // SHITCOIN: same fork adaptation as get_next_work_lower_limit_actual:
+    // expected_nbits+1 is inside the post-fork 8x sanity bound, so it is
+    // permitted now. The binding constraint at this height is the pow
+    // limit (the 8x bound exceeds it and is capped): the retarget output
+    // is permitted, a target above the pow limit is not.
+    BOOST_CHECK(PermittedDifficultyTransition(chainParams->GetConsensus(), pindexLast.nHeight+1, pindexLast.nBits, expected_nbits));
+    unsigned int invalid_nbits = (UintToArith256(chainParams->GetConsensus().powLimit) * 2).GetCompact();
     BOOST_CHECK(!PermittedDifficultyTransition(chainParams->GetConsensus(), pindexLast.nHeight+1, pindexLast.nBits, invalid_nbits));
 }
 
