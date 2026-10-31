@@ -136,7 +136,7 @@ SYSCOIN_DIR="$HOME_DIR/.syscoin"
 echo "==> 1/7 user + packages"
 id "$DATADIR_USER" >/dev/null 2>&1 || useradd -m -s /bin/bash "$DATADIR_USER"
 apt-get update -qq
-apt-get install -y -qq wget unzip python3 python3-zmq openssl curl ca-certificates libzmq5 libevent-2.1-7 libsqlite3-0 libgmp10 libssl3
+apt-get install -y -qq wget unzip python3 python3-zmq openssl curl ca-certificates libzmq5 libevent-2.1-7 libevent-core-2.1-7t64 libevent-pthreads-2.1-7t64 libsqlite3-0 libgmp10 libssl3
 
 echo "==> 2/7 node binaries (current version v5.0.9)"
 cd /tmp
