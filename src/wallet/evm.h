@@ -7,11 +7,10 @@
 
 #include <key.h>
 #include <threadsafety.h>
+#include <wallet/wallet.h>
 
 #include <cstdint>
 #include <string>
-
-class CWallet;
 
 namespace wallet {
 

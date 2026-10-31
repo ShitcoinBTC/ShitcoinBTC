@@ -7313,8 +7313,7 @@ fs::path FindExecPath(std::string &binArchitectureTag) {
         fpathDefault = fs::u8path(utf8_encode(std::wstring(pszExePath)));
         fpathDefault = fpathDefault.parent_path();
         return fpathDefault;
-    #endif
-    #ifdef MAC_OSX
+    #elif defined(MAC_OSX)
         binArchitectureTag = "darwin";
         char buf [PATH_MAX];
         uint32_t bufsize = PATH_MAX;
@@ -7323,8 +7322,7 @@ fs::path FindExecPath(std::string &binArchitectureTag) {
         fpathDefault = fs::u8path(std::string(buf));
         fpathDefault = fpathDefault.parent_path();
         return fpathDefault;
-    #endif
-    #ifndef WIN32
+    #else
         binArchitectureTag = "linux";
         char pszExePath[MAX_PATH+1];
         ssize_t r = readlink("/proc/self/exe", pszExePath, sizeof(pszExePath) - 1);
