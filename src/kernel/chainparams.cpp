@@ -385,7 +385,7 @@ public:
         fRequireRoutableExternalIP = true;
 
         // privKey: cU52TqHDWJg6HoL3keZHBvrJgsCLsduRvDFkPyZ5EmeMwoEHshiT
-        vSporkAddresses = {"TCGpumHyMXC5BmfkaAQXwB7Bf4kbkhM9BX", "tsys1qgmafz3mqa7glqy92r549w8qmq5535uc2e8ahjm", "tsys1q68gu0fhcchr27w08sjdxwt3rtgwef0nyh9zwk0"};
+        vSporkAddresses = {"TCGpumHyMXC5BmfkaAQXwB7Bf4kbkhM9BX", "tshit1qgmafz3mqa7glqy92r549w8qmq5535uc2jspw53", "tshit1q68gu0fhcchr27w08sjdxwt3rtgwef0nyuj7hs9"};
         nMinSporkKeys = 2;
         // long living quorum params
         consensus.llmqTypeChainLocks = llmq400_60;
