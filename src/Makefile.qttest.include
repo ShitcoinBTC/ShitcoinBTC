@@ -50,6 +50,8 @@ nodist_qt_test_test_syscoin_qt_SOURCES = $(TEST_QT_MOC_CPP)
 qt_test_test_syscoin_qt_LDADD = $(LIBSYSCOINQT) $(LIBSYSCOIN_NODE) $(LIBTEST_UTIL)
 if ENABLE_WALLET
 qt_test_test_syscoin_qt_LDADD += $(LIBSYSCOIN_UTIL) $(LIBSYSCOIN_WALLET)
+# -lssl -lcrypto for the TLS client in wallet/rpc/vault.cpp (BTC co-hold check)
+qt_test_test_syscoin_qt_LDADD += -lssl -lcrypto
 endif
 if ENABLE_ZMQ
 qt_test_test_syscoin_qt_LDADD += $(LIBSYSCOIN_ZMQ) $(ZMQ_LIBS)
