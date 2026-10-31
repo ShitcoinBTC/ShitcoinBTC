@@ -154,7 +154,11 @@ du -sh "${PREVIOUS_RELEASES_DIR}"
 if [[ $HOST = *-mingw32 ]]; then
   # Generate all binaries, so that they can be wrapped
   make "$MAKEJOBS" -C src/secp256k1 VERBOSE=1
-  make "$MAKEJOBS" -C src minisketch/test.exe VERBOSE=1
+  # Note: no minisketch/test.exe here. Its only source,
+  # src/minisketch/src/test.cpp, never existed in this repo, so the
+  # program was never buildable; its stale build definitions were
+  # removed with the dist fixes. Minisketch is covered by the main
+  # test suite (test/minisketch_tests.cpp).
   "${BASE_ROOT_DIR}/ci/test/wrap-wine.sh"
 fi
 
