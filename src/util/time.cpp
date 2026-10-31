@@ -96,30 +96,64 @@ std::chrono::seconds GetMockTime()
 
 int64_t GetTime() { return GetTime<std::chrono::seconds>().count(); }
 
-std::string FormatISO8601DateTime(int64_t nTime) {
-    struct tm ts;
-    time_t time_val = nTime;
-#ifdef HAVE_GMTIME_R
-    if (gmtime_r(&time_val, &ts) == nullptr) {
-#else
-    if (gmtime_s(&ts, &time_val) != 0) {
-#endif
-        return {};
+namespace {
+// Broken-down UTC date/time, computed without the C library so the result
+// does not depend on the platform's gmtime range. (MSVC's gmtime_s rejects
+// every time after 3000-12-31, which made FormatISO8601* return an empty
+// string on Windows for inputs that POSIX gmtime_r formats fine, e.g. the
+// year-32767 values exercised by the unit tests.)
+struct BrokenDownUTC {
+    int64_t year;   //!< Proleptic Gregorian year (astronomical numbering)
+    int month;      //!< [1, 12]
+    int day;        //!< [1, 31]
+    int hour;       //!< [0, 23]
+    int minute;     //!< [0, 59]
+    int second;     //!< [0, 59]
+};
+
+// Convert seconds since the Unix epoch to a broken-down UTC date/time.
+// Days-to-civil conversion after Howard Hinnant's public-domain algorithm
+// (https://howardhinnant.github.io/date_algorithms.html); exact for the
+// whole int64_t input range and identical to POSIX gmtime semantics
+// (proleptic Gregorian calendar, no leap seconds).
+BrokenDownUTC BreakDownUTC(int64_t nTime)
+{
+    // Split into whole days and a non-negative second-of-day, using floor
+    // division so negative (pre-epoch) times are handled correctly.
+    int64_t days = nTime / 86400;
+    int64_t secs = nTime % 86400;
+    if (secs < 0) {
+        secs += 86400;
+        --days;
     }
-    return strprintf("%04i-%02i-%02iT%02i:%02i:%02iZ", ts.tm_year + 1900, ts.tm_mon + 1, ts.tm_mday, ts.tm_hour, ts.tm_min, ts.tm_sec);
+
+    BrokenDownUTC out;
+    out.hour = int(secs / 3600);
+    out.minute = int((secs % 3600) / 60);
+    out.second = int(secs % 60);
+
+    const int64_t z = days + 719468; // days since 0000-03-01
+    const int64_t era = (z >= 0 ? z : z - 146096) / 146097;
+    const uint64_t doe = uint64_t(z - era * 146097);                    // [0, 146096]
+    const uint64_t yoe = (doe - doe / 1460 + doe / 36524 - doe / 146096) / 365; // [0, 399]
+    const int64_t y = int64_t(yoe) + era * 400;
+    const uint64_t doy = doe - (365 * yoe + yoe / 4 - yoe / 100);       // [0, 365]
+    const uint64_t mp = (5 * doy + 2) / 153;                            // [0, 11]
+    out.day = int(doy - (153 * mp + 2) / 5 + 1);                        // [1, 31]
+    out.month = int(mp < 10 ? mp + 3 : mp - 9);                         // [1, 12]
+    out.year = y + (out.month <= 2);
+    return out;
+}
+} // namespace
+
+std::string FormatISO8601DateTime(int64_t nTime) {
+    const BrokenDownUTC ts = BreakDownUTC(nTime);
+    return strprintf("%04i-%02i-%02iT%02i:%02i:%02iZ", ts.year, ts.month, ts.day, ts.hour, ts.minute, ts.second);
 }
 
 std::string FormatISO8601Date(int64_t nTime) {
-    struct tm ts;
-    time_t time_val = nTime;
-#ifdef HAVE_GMTIME_R
-    if (gmtime_r(&time_val, &ts) == nullptr) {
-#else
-    if (gmtime_s(&ts, &time_val) != 0) {
-#endif
-        return {};
-    }
-    return strprintf("%04i-%02i-%02i", ts.tm_year + 1900, ts.tm_mon + 1, ts.tm_mday);
+    const BrokenDownUTC ts = BreakDownUTC(nTime);
+    return strprintf("%04i-%02i-%02i", ts.year, ts.month, ts.day);
 }
 // SYSCOIN
 std::string DurationToDHMS(int64_t nDurationTime)
