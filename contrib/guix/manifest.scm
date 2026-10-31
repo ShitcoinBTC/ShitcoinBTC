@@ -217,6 +217,17 @@ and abstract ELF, PE and MachO formats.")
                (base32
                 "1j47vwq4caxfv0xw68kw5yh00qcpbd56d7rq6c483ma3y7s96yyz"))))
     (build-system cmake-build-system)
+    (arguments
+     ;; Upstream's test suite cannot run in the sandboxed build environment:
+     ;; it generates certificates with makecerts.sh, requires faketime, and
+     ;; starts a local Python TSA server -- none of which are available to
+     ;; the build (no network, and neither faketime nor Python is an input).
+     ;; With tests enabled the package build fails deterministically in the
+     ;; check phase (~5s in, every run), which also blocks the whole
+     ;; x86_64-w64-mingw32 Guix profile.  The tool itself builds fine and is
+     ;; only used to attach signatures in codesign.sh.  Same treatment as
+     ;; python-lief above, whose tests likewise need the network.
+     '(#:tests? #f))
     (inputs (list openssl))
     (home-page "https://github.com/mtrojnar/osslsigncode")
     (synopsis "Authenticode signing and timestamping tool")
