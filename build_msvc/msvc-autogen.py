@@ -13,6 +13,7 @@ DEFAULT_PLATFORM_TOOLSET = R'v143'
 
 libs = [
     'libsyscoin_cli',
+    'libsyscoin_consensus',
     'libsyscoin_common',
     'libsyscoin_crypto',
     'libsyscoin_node',
@@ -22,6 +23,7 @@ libs = [
     'libsyscoin_zmq',
     'bench_syscoin',
     'libtest_util',
+    'libnevm',
 ]
 
 ignore_list = [

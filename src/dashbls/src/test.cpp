@@ -520,7 +520,7 @@ TEST_CASE("Error handling")
 
         // spawn a thread and make sure it uses a different/same context depending on relic's multithreading setup
         std::thread([&]() {
-#if MULTI != RELIC_NONE
+#if defined(MULTI) && (MULTI + 0 != RELIC_NONE)
             REQUIRE(ctx1 != core_get());
             REQUIRE(core_get()->code == RLC_OK);
 #else
@@ -530,7 +530,7 @@ TEST_CASE("Error handling")
             core_get()->code = 1;
         }).join();
 
-#if MULTI != RELIC_NONE
+#if defined(MULTI) && (MULTI + 0 != RELIC_NONE)
         REQUIRE(core_get()->code == 10);
 #else
         REQUIRE(core_get()->code == 1);

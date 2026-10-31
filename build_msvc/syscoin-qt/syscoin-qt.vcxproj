@@ -49,6 +49,9 @@
     <ProjectReference Include="..\libunivalue\libunivalue.vcxproj">
       <Project>{5724ba7d-a09a-4ba8-800b-c4c1561b3d69}</Project>
     </ProjectReference>
+    <ProjectReference Include="..\libnevm\libnevm.vcxproj">
+      <Project>{32dc804b-a736-40ed-b14a-064324a1f12e}</Project>
+    </ProjectReference>
   </ItemGroup>
 
   <ItemDefinitionGroup Condition="'$(Configuration)'=='Release'">

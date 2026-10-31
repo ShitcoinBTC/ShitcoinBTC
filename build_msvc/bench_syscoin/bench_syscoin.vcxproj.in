@@ -45,6 +45,9 @@
     <ProjectReference Include="..\libtest_util\libtest_util.vcxproj">
       <Project>{1e065f03-3566-47d0-8fa9-daa72b084e7d}</Project>
     </ProjectReference>
+    <ProjectReference Include="..\libnevm\libnevm.vcxproj">
+      <Project>{32dc804b-a736-40ed-b14a-064324a1f12e}</Project>
+    </ProjectReference>
   </ItemGroup>
   <Target Name="RawBenchHeaderGen" BeforeTargets="PrepareForBuild">
     <PropertyGroup>

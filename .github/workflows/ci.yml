@@ -257,6 +257,25 @@ jobs:
           path: C:\Qt_static
           key: ${{ github.job }}-static-qt-${{ hashFiles('msbuild_version', 'qt_url', 'qt_conf') }}
 
+      - name: Restore DashBLS build cache
+        id: dashbls-cache
+        uses: actions/cache/restore@v3
+        with:
+          path: build_msvc\dashbls-install
+          key: ${{ github.job }}-dashbls-${{ hashFiles('build_msvc/build-dashbls.ps1', 'build_msvc/dashbls-relic-conf.h.in', 'msbuild_version', 'src/dashbls/**') }}
+
+      - name: Build DashBLS (relic + mimalloc + bls static lib)
+        if: steps.dashbls-cache.outputs.cache-hit != 'true'
+        shell: powershell
+        run: build_msvc\build-dashbls.ps1 -Configuration Release
+
+      - name: Save DashBLS build cache
+        if: steps.dashbls-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v3
+        with:
+          path: build_msvc\dashbls-install
+          key: ${{ github.job }}-dashbls-${{ hashFiles('build_msvc/build-dashbls.ps1', 'build_msvc/dashbls-relic-conf.h.in', 'msbuild_version', 'src/dashbls/**') }}
+
       - name: Ccache installation cache
         id: ccache-installation-cache
         uses: actions/cache@v3

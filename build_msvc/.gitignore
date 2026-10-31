@@ -20,6 +20,7 @@ libsyscoin_wallet/libsyscoin_wallet.vcxproj
 libsyscoin_zmq/libsyscoin_zmq.vcxproj
 bench_syscoin/bench_syscoin.vcxproj
 libtest_util/libtest_util.vcxproj
+libnevm/libnevm.vcxproj
 
 /syscoin_config.h
 /common.init.vcxproj
