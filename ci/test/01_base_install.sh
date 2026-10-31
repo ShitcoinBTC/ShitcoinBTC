@@ -31,8 +31,13 @@ elif [ "$CI_OS_NAME" != "macos" ]; then
 fi
 
 if [ -n "$PIP_PACKAGES" ]; then
+  # --break-system-packages is required on hosts whose Python is
+  # externally managed (PEP 668), e.g. Homebrew Python on current macOS
+  # runners: without it pip refuses even a --user install with
+  # "error: externally-managed-environment". The install is still
+  # --user-scoped and CI runners are ephemeral.
   # shellcheck disable=SC2086
-  ${CI_RETRY_EXE} pip3 install --user $PIP_PACKAGES
+  ${CI_RETRY_EXE} pip3 install --user --break-system-packages $PIP_PACKAGES
 fi
 
 if [[ ${USE_MEMORY_SANITIZER} == "true" ]]; then

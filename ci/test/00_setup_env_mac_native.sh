@@ -15,7 +15,16 @@ export CI_OS_NAME="macos"
 export NO_DEPENDS=1
 export OSX_SDK=""
 export CCACHE_MAXSIZE=400M
-export CPATH="/opt/homebrew/include"
-export LDFLAGS="-L/opt/homebrew/lib -L/opt/homebrew/opt $LDFLAGS"
+# Homebrew's prefix is /opt/homebrew on ARM64 runners but /usr/local on
+# Intel (x86_64) runners such as macos-15-intel, which this job now uses.
+# Hardcoding /opt/homebrew pointed the compiler/linker at directories
+# that do not exist on Intel. Ask brew for the real prefix.
+if command -v brew >/dev/null 2>&1; then
+  BREW_PREFIX="$(brew --prefix)"
+else
+  BREW_PREFIX="/opt/homebrew"
+fi
+export CPATH="${BREW_PREFIX}/include"
+export LDFLAGS="-L${BREW_PREFIX}/lib -L${BREW_PREFIX}/opt $LDFLAGS"
 export RUN_FUZZ_TESTS=true
 export FUZZ_TESTS_CONFIG="--exclude banman"  # https://github.com/bitcoin/bitcoin/issues/27924
