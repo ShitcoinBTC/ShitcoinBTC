@@ -53,9 +53,9 @@ static const std::string TOR_SAFE_SERVERKEY = "Tor safe cookie authentication se
 /** For computing clientHash in SAFECOOKIE */
 static const std::string TOR_SAFE_CLIENTKEY = "Tor safe cookie authentication controller-to-server hash";
 /** Exponential backoff configuration - initial timeout in seconds */
-static const float RECONNECT_TIMEOUT_START = 1.0;
+static const float RECONNECT_TIMEOUT_START = 1.0f;
 /** Exponential backoff configuration - growth factor */
-static const float RECONNECT_TIMEOUT_EXP = 1.5;
+static const float RECONNECT_TIMEOUT_EXP = 1.5f;
 /** Maximum length for lines received on TorControlConnection.
  * tor-control-spec.txt mentions that there is explicitly no limit defined to line length,
  * this is belt-and-suspenders sanity limit to prevent memory exhaustion.

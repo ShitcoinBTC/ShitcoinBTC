@@ -46,10 +46,14 @@
 #include <functional>
 #include <string>
 #include <chrono>
+#ifndef _MSC_VER
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wunused-parameter"
+#endif
 #include <boost/multiprecision/cpp_int.hpp>	
+#ifndef _MSC_VER
 #pragma GCC diagnostic pop
+#endif
 #include <nevm/vector_ref.h>
 // CryptoPP defines _byte in the global namespace, so must we.
 using _byte = uint8_t;

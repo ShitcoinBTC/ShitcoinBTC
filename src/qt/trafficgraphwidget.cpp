@@ -72,7 +72,7 @@ void TrafficGraphWidget::paintEvent(QPaintEvent *)
     float val = std::pow(10.0f, base);
 
     const QString units = tr("kB/s");
-    const float yMarginText = 2.0;
+    const float yMarginText = 2.0f;
 
     // draw lines
     painter.setPen(axisCol);
