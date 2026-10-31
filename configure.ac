@@ -1472,7 +1472,14 @@ AM_CONDITIONAL([TARGET_ARM], [test "$TARGET_ARCH" = "arm"])
 AM_CONDITIONAL([TARGET_X86_64_LINUX], [test "$TARGET_ARCH-$TARGET_OS" = "x86_64-linux"])
 # Ship the prebuilt sysgeth sidecar only when the binary is actually present;
 # an unconditional dist rule breaks the build for everyone when it is missing.
-AM_CONDITIONAL([HAVE_SYSGETH_LINUX_X86_64], [test -f "$srcdir/bin/linux/x86_64/sysgeth"])
+# The dist_bin_SCRIPTS entry in src/Makefile.am is relative to src/, and the
+# canonical location (see SYSCOIN_GETH_BIN in the top-level Makefile.am) is
+# src/bin/linux/x86_64/sysgeth, so the test must look under $srcdir/src/ --
+# testing $srcdir/bin/... silently omitted a sysgeth placed at the canonical
+# location, and turned the rule back on (breaking the build with
+# "No rule to make target 'bin/linux/x86_64/sysgeth'") when a file existed
+# at the unrelated top-level bin/ path instead.
+AM_CONDITIONAL([HAVE_SYSGETH_LINUX_X86_64], [test -f "$srcdir/src/bin/linux/x86_64/sysgeth"])
 AM_CONDITIONAL([TARGET_ARM_LINUX], [test "$TARGET_ARCH-$TARGET_OS" = "arm-linux"])
 AM_CONDITIONAL([TARGET_AARCH64_LINUX], [test "$TARGET_ARCH-$TARGET_OS" = "aarch64-linux"])
 AM_CONDITIONAL([TARGET_X86_64_DARWIN], [test "$TARGET_ARCH-$TARGET_OS" = "x86_64-darwin"])

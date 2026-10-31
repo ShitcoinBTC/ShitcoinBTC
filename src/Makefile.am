@@ -1045,26 +1045,38 @@ endif
 
 #
 # syscoin pre-built binaries #
-dist_bin_SCRIPTS =
+# NOTE: do not use dist_bin_SCRIPTS for sysgeth. Automake collects every
+# value a dist_ primary takes under any condition into its *_DIST list
+# unconditionally, so a conditional dist_bin_SCRIPTS entry is still a
+# hard prerequisite of `make dist' -- which fails with
+# "No rule to make target 'bin/linux/x86_64/sysgeth'" whenever the
+# prebuilt binary is absent (the normal case: it is never committed).
+# A plain bin_SCRIPTS (install) plus EXTRA_DIST (dist) are both expanded
+# with the configure-time condition, so the file is shipped exactly when
+# configure found it at src/bin/linux/x86_64/sysgeth, and no build,
+# install or dist target references it when it is absent.
+bin_SCRIPTS =
+SYSGETH_DIST =
 # if TARGET_WINDOWS
-# dist_bin_SCRIPTS += bin/windows/sysgeth.exe
+# bin_SCRIPTS += bin/windows/sysgeth.exe
 # endif
 # if TARGET_X86_64_DARWIN
-# dist_bin_SCRIPTS += bin/darwin/x86_64/sysgeth
+# bin_SCRIPTS += bin/darwin/x86_64/sysgeth
 # endif
 # if TARGET_ARM64_DARWIN
-# dist_bin_SCRIPTS += bin/darwin/arm64/sysgeth
+# bin_SCRIPTS += bin/darwin/arm64/sysgeth
 # endif
 if TARGET_X86_64_LINUX
 if HAVE_SYSGETH_LINUX_X86_64
-dist_bin_SCRIPTS += bin/linux/x86_64/sysgeth
+bin_SCRIPTS += bin/linux/x86_64/sysgeth
+SYSGETH_DIST += bin/linux/x86_64/sysgeth
 endif
 endif
 # if TARGET_ARM_LINUX
-# dist_bin_SCRIPTS += bin/linux/arm/sysgeth
+# bin_SCRIPTS += bin/linux/arm/sysgeth
 # endif
 # if TARGET_AARCH64_LINUX
-# dist_bin_SCRIPTS += bin/linux/aarch64/sysgeth
+# bin_SCRIPTS += bin/linux/aarch64/sysgeth
 # endif
 
 
@@ -1102,6 +1114,7 @@ LIBDASHBLS_DIST = dashbls
 
 EXTRA_DIST = \
   $(CTAES_DIST)   \
+  $(SYSGETH_DIST) \
   $(IMMER_DIST)   \
   $(LIBDASHBLS_DIST)
 
