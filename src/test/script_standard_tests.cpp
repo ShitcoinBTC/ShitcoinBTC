@@ -385,7 +385,7 @@ BOOST_AUTO_TEST_CASE(script_standard_taproot_builder)
     builder.Finalize(key_inner);
     BOOST_CHECK(builder.IsValid() && builder.IsComplete());
     // SYSCOIN
-    BOOST_CHECK_EQUAL(EncodeDestination(builder.GetOutput()), "sys1pj6gaw944fy0xpmzzu45ugqde4rz7mqj5kj0tg8kmr5f0pjq8vnaqjvkpnk");
+    BOOST_CHECK_EQUAL(EncodeDestination(builder.GetOutput()), "shit1pj6gaw944fy0xpmzzu45ugqde4rz7mqj5kj0tg8kmr5f0pjq8vnaq25k272");
 }
 
 BOOST_AUTO_TEST_CASE(bip341_spk_test_vectors)
