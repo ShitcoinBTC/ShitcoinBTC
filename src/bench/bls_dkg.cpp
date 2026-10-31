@@ -127,12 +127,12 @@ static void BLSDKG_GenerateContributions(benchmark::Bench& bench, uint32_t epoch
     blsWorker.Stop();
 }
 
-#define BENCH_GenerateContributions(name, quorumSize, epoch_iters) \
+#define BENCH_GenerateContributions(name, quorumSize, epoch_iters, priority) \
     static void BLSDKG_GenerateContributions_##name##_##quorumSize(benchmark::Bench& bench) \
     {                                                \
         BLSDKG_GenerateContributions(bench, epoch_iters, quorumSize); \
     } \
-    BENCHMARK(BLSDKG_GenerateContributions_##name##_##quorumSize, benchmark::PriorityLevel::HIGH)
+    BENCHMARK(BLSDKG_GenerateContributions_##name##_##quorumSize, benchmark::PriorityLevel::priority)
 
 static void BLSDKG_InitDKG(benchmark::Bench& bench, uint32_t epoch_iters, int quorumSize)
 {
@@ -148,38 +148,45 @@ static void BLSDKG_InitDKG(benchmark::Bench& bench, uint32_t epoch_iters, int qu
     } \
     BENCHMARK(BLSDKG_InitDKG_##name##_##quorumSize, benchmark::PriorityLevel::HIGH)
 
-#define BENCH_BuildQuorumVerificationVectors(name, quorumSize, epoch_iters) \
+#define BENCH_BuildQuorumVerificationVectors(name, quorumSize, epoch_iters, priority) \
     static void BLSDKG_BuildQuorumVerificationVectors_##name##_##quorumSize(benchmark::Bench& bench) \
     { \
         std::unique_ptr<DKG> ptr = std::make_unique<DKG>(quorumSize); \
         ptr->Bench_BuildQuorumVerificationVectors(bench, epoch_iters); \
         ptr.reset(); \
     } \
-    BENCHMARK(BLSDKG_BuildQuorumVerificationVectors_##name##_##quorumSize, benchmark::PriorityLevel::HIGH)
+    BENCHMARK(BLSDKG_BuildQuorumVerificationVectors_##name##_##quorumSize, benchmark::PriorityLevel::priority)
 
-#define BENCH_VerifyContributionShares(name, quorumSize, invalidCount, aggregated, epoch_iters) \
+#define BENCH_VerifyContributionShares(name, quorumSize, invalidCount, aggregated, epoch_iters, priority) \
     static void BLSDKG_VerifyContributionShares_##name##_##quorumSize(benchmark::Bench& bench) \
     { \
       std::unique_ptr<DKG> ptr = std::make_unique<DKG>(quorumSize); \
       ptr->Bench_VerifyContributionShares(bench, invalidCount, aggregated, epoch_iters); \
       ptr.reset(); \
     } \
-    BENCHMARK(BLSDKG_VerifyContributionShares_##name##_##quorumSize, benchmark::PriorityLevel::HIGH)
+    BENCHMARK(BLSDKG_VerifyContributionShares_##name##_##quorumSize, benchmark::PriorityLevel::priority)
 
-BENCH_GenerateContributions(simple, 50, 50);
-BENCH_GenerateContributions(simple, 100, 5);
+// The quorum-100 and quorum-400 variants are LOW priority: a single
+// iteration costs seconds to minutes (the work is O(quorum^2) BLS
+// operations), which defeats the HIGH tier's purpose — CI runs that
+// tier as a one-iteration sanity check (see ci/test/06_script_a.sh).
+// They still run in every all-priority invocation, like the other
+// heavy benchmarks that are already LOW (wallet creation, block
+// assembly with a populated mempool).
+BENCH_GenerateContributions(simple, 50, 50, HIGH);
+BENCH_GenerateContributions(simple, 100, 5, LOW);
 
 BENCH_InitDKG(simple, 10, 100)
 BENCH_InitDKG(simple, 50, 10)
 
-BENCH_BuildQuorumVerificationVectors(simple, 10, 1000)
-BENCH_BuildQuorumVerificationVectors(simple, 100, 10)
-BENCH_BuildQuorumVerificationVectors(simple, 400, 1)
+BENCH_BuildQuorumVerificationVectors(simple, 10, 1000, HIGH)
+BENCH_BuildQuorumVerificationVectors(simple, 100, 10, LOW)
+BENCH_BuildQuorumVerificationVectors(simple, 400, 1, LOW)
 
-BENCH_VerifyContributionShares(simple, 10, 5, false, 10)
-BENCH_VerifyContributionShares(simple, 100, 5, false, 10)
-BENCH_VerifyContributionShares(simple, 400, 5, false, 1)
+BENCH_VerifyContributionShares(simple, 10, 5, false, 10, HIGH)
+BENCH_VerifyContributionShares(simple, 100, 5, false, 10, LOW)
+BENCH_VerifyContributionShares(simple, 400, 5, false, 1, LOW)
 
-BENCH_VerifyContributionShares(aggregated, 10, 5, true, 100)
-BENCH_VerifyContributionShares(aggregated, 100, 5, true, 10)
-BENCH_VerifyContributionShares(aggregated, 400, 5, true, 1)
+BENCH_VerifyContributionShares(aggregated, 10, 5, true, 100, HIGH)
+BENCH_VerifyContributionShares(aggregated, 100, 5, true, 10, LOW)
+BENCH_VerifyContributionShares(aggregated, 400, 5, true, 1, LOW)

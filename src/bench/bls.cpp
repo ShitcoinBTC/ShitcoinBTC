@@ -363,11 +363,14 @@ BENCHMARK(BLS_SignatureAggregate_Normal, benchmark::PriorityLevel::HIGH)
 BENCHMARK(BLS_Sign_Normal, benchmark::PriorityLevel::HIGH)
 BENCHMARK(BLS_Verify_Normal, benchmark::PriorityLevel::HIGH)
 BENCHMARK(BLS_Verify_LargeBlock100, benchmark::PriorityLevel::HIGH)
-BENCHMARK(BLS_Verify_LargeBlock1000, benchmark::PriorityLevel::HIGH)
+// The 1000-block verification variants are LOW priority for the same
+// reason as the large-quorum DKG benchmarks: one iteration costs
+// seconds, and the HIGH tier is what CI runs as a sanity check.
+BENCHMARK(BLS_Verify_LargeBlock1000, benchmark::PriorityLevel::LOW)
 BENCHMARK(BLS_Verify_LargeBlockSelfAggregated100, benchmark::PriorityLevel::HIGH)
-BENCHMARK(BLS_Verify_LargeBlockSelfAggregated1000, benchmark::PriorityLevel::HIGH)
+BENCHMARK(BLS_Verify_LargeBlockSelfAggregated1000, benchmark::PriorityLevel::LOW)
 BENCHMARK(BLS_Verify_LargeAggregatedBlock100, benchmark::PriorityLevel::HIGH)
-BENCHMARK(BLS_Verify_LargeAggregatedBlock1000, benchmark::PriorityLevel::HIGH)
-BENCHMARK(BLS_Verify_LargeAggregatedBlock1000PreVerified, benchmark::PriorityLevel::HIGH)
+BENCHMARK(BLS_Verify_LargeAggregatedBlock1000, benchmark::PriorityLevel::LOW)
+BENCHMARK(BLS_Verify_LargeAggregatedBlock1000PreVerified, benchmark::PriorityLevel::LOW)
 BENCHMARK(BLS_Verify_Batched, benchmark::PriorityLevel::HIGH)
 BENCHMARK(BLS_Verify_BatchedParallel, benchmark::PriorityLevel::HIGH)
