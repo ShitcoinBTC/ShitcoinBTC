@@ -31,6 +31,17 @@ using node::CBlockTemplate;
 
 namespace miner_tests {
 struct MinerTestingSetup : public TestingSetup {
+    // This suite mines blocks ad-hoc starting from block 1, so it must run
+    // on regtest: on chains with launch allocations (main/test/signet),
+    // consensus requires block 1's coinbase to contain exactly the four
+    // scheduled allocation outputs (CheckAllocationBlock), which neither
+    // the block assembler's generic coinbase nor this suite's hand-built
+    // BLOCKINFO block 1 provides. Regtest is the chain type designed for
+    // this: its allocations are zero (the allocation check is skipped),
+    // and its subsidy schedule (GetBlockSubsidyRegtest, 50 COIN with
+    // halvings) is the one this suite's BLOCKSUBSIDY constants assume.
+    // Upstream Bitcoin's fixture default (MAIN) was never ported.
+    MinerTestingSetup() : TestingSetup{ChainType::REGTEST} {}
     void TestPackageSelection(const CScript& scriptPubKey, const std::vector<CTransactionRef>& txFirst) EXCLUSIVE_LOCKS_REQUIRED(::cs_main);
     void TestBasicMining(const CScript& scriptPubKey, const std::vector<CTransactionRef>& txFirst, int baseheight) EXCLUSIVE_LOCKS_REQUIRED(::cs_main);
     void TestPrioritisedMining(const CScript& scriptPubKey, const std::vector<CTransactionRef>& txFirst) EXCLUSIVE_LOCKS_REQUIRED(::cs_main);
