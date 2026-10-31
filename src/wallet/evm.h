@@ -40,7 +40,7 @@ std::string EVMAddressHex(const CKey& key);
 //! private key across the wallet's script pub key managers. Returns false
 //! when the wallet is locked/encrypted or holds no private keys.
 //! Call with the wallet's cs_wallet lock held.
-bool GetWalletEVMKey(const CWallet& wallet, CKey& keyOut);
+bool GetWalletEVMKey(const CWallet& wallet, CKey& keyOut) EXCLUSIVE_LOCKS_REQUIRED(wallet.cs_wallet);
 
 //! Build and EIP-155 sign a legacy NEVM transaction. Returns the signed raw
 //! transaction as 0x-prefixed hex, or an empty string on failure.

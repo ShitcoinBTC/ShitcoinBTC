@@ -121,7 +121,7 @@ bool GetKeyForEVM(ScriptPubKeyMan* spk_man, const CTxDestination& dest, CKey& ke
 }
 } // namespace
 
-bool GetWalletEVMKey(const CWallet& wallet, CKey& keyOut)
+bool GetWalletEVMKey(const CWallet& wallet, CKey& keyOut) EXCLUSIVE_LOCKS_REQUIRED(wallet.cs_wallet)
 {
     AssertLockHeld(wallet.cs_wallet);
     // Prefer the key of the first spendable receive address in the address
