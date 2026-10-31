@@ -96,8 +96,14 @@
 // pid_t is a POSIX type (sys/types.h above, not available on Windows).
 // The geth launcher in this file uses it on both platforms: on POSIX for
 // fork()/waitpid(), on Windows as the return type of the CreateProcessW
-// fork() shim defined below. MSVC's headers do not provide it.
+// fork() shim defined below. MSVC's headers do not provide it, but
+// mingw-w64's do (sys/types.h: typedef _pid_t pid_t, _pid_t is int), so
+// only typedef it for MSVC; a second typedef conflicts under mingw.
+#if defined(_MSC_VER)
 typedef int pid_t;
+#else
+#include <sys/types.h>
+#endif
 #endif
 // SYSCOIN
 #if ENABLE_ZMQ
