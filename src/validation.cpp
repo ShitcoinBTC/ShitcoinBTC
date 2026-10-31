@@ -92,6 +92,13 @@
 #include <sys/types.h>
 #include <signal.h>
 #endif
+#ifdef WIN32
+// pid_t is a POSIX type (sys/types.h above, not available on Windows).
+// The geth launcher in this file uses it on both platforms: on POSIX for
+// fork()/waitpid(), on Windows as the return type of the CreateProcessW
+// fork() shim defined below. MSVC's headers do not provide it.
+typedef int pid_t;
+#endif
 // SYSCOIN
 #if ENABLE_ZMQ
 #include <zmq/zmqabstractnotifier.h>
@@ -7162,7 +7169,7 @@ bool CBlockIndexDB::Prune(const uint32_t &nHeight, CDBBatch &batch) {
             pcursor->Next();
         }
         catch (std::exception &e) {
-            return error("%s() : deserialize error", __PRETTY_FUNCTION__);
+            return error("%s() : deserialize error", __func__);
         }
     }
     return FlushErase(vecTXIDPairs, batch);
