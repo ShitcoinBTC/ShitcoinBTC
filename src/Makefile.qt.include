@@ -354,6 +354,13 @@ syscoin_qt_ldadd += $(LIBSYSCOIN_CLI) $(LIBSYSCOIN_COMMON) $(LIBSYSCOIN_UTIL) $(
 if ENABLE_WALLET
 # -lssl -lcrypto for the TLS client in wallet/rpc/vault.cpp (BTC co-hold check)
 syscoin_qt_ldadd += -lssl -lcrypto
+if TARGET_LINUX
+# static libcrypto's DSO loader (dso_dlfcn.o) references dlopen/dlclose/
+# dlsym/dlerror/dladdr; glibc < 2.34 keeps those in libdl (e.g. the Guix
+# riscv64 cross toolchain ships glibc 2.31), so -ldl must follow -lcrypto.
+# Harmless on glibc >= 2.34, where libdl is an empty compat archive.
+syscoin_qt_ldadd += -ldl
+endif
 endif
 syscoin_qt_ldflags = $(RELDFLAGS) $(AM_LDFLAGS) $(QT_LDFLAGS) $(LIBTOOL_APP_LDFLAGS) $(PTHREAD_FLAGS)
 syscoin_qt_libtoolflags = $(AM_LIBTOOLFLAGS) --tag CXX

@@ -93,6 +93,13 @@ bench_bench_syscoin_SOURCES += bench/wallet_create_tx.cpp
 bench_bench_syscoin_LDADD += $(BDB_LIBS) $(SQLITE_LIBS)
 # -lssl -lcrypto for the TLS client in wallet/rpc/vault.cpp (BTC co-hold check)
 bench_bench_syscoin_LDADD += -lssl -lcrypto
+if TARGET_LINUX
+# static libcrypto's DSO loader (dso_dlfcn.o) references dlopen/dlclose/
+# dlsym/dlerror/dladdr; glibc < 2.34 keeps those in libdl (e.g. the Guix
+# riscv64 cross toolchain ships glibc 2.31), so -ldl must follow -lcrypto.
+# Harmless on glibc >= 2.34, where libdl is an empty compat archive.
+bench_bench_syscoin_LDADD += -ldl
+endif
 endif
 
 bench_bench_syscoin_LDADD += $(GMP_LIBS)

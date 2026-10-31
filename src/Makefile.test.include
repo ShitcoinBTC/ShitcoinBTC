@@ -63,6 +63,13 @@ FUZZ_SUITE_LD_COMMON = \
  $(GMP_LIBS)
 # -lssl -lcrypto for the TLS client in wallet/rpc/vault.cpp (BTC co-hold check)
 FUZZ_SUITE_LD_COMMON += -lssl -lcrypto
+if TARGET_LINUX
+# static libcrypto's DSO loader (dso_dlfcn.o) references dlopen/dlclose/
+# dlsym/dlerror/dladdr; glibc < 2.34 keeps those in libdl (e.g. the Guix
+# riscv64 cross toolchain ships glibc 2.31), so -ldl must follow -lcrypto.
+# Harmless on glibc >= 2.34, where libdl is an empty compat archive.
+FUZZ_SUITE_LD_COMMON += -ldl
+endif
 
 if USE_UPNP
 FUZZ_SUITE_LD_COMMON += $(MINIUPNPC_LIBS)
@@ -245,6 +252,13 @@ test_test_syscoin_CXXFLAGS = $(AM_CXXFLAGS) $(PIE_FLAGS)
 test_test_syscoin_LDADD += $(BDB_LIBS) $(MINIUPNPC_LIBS) $(NATPMP_LIBS) $(SQLITE_LIBS) $(GMP_LIBS)
 # -lssl -lcrypto for the TLS client in wallet/rpc/vault.cpp (BTC co-hold check)
 test_test_syscoin_LDADD += -lssl -lcrypto
+if TARGET_LINUX
+# static libcrypto's DSO loader (dso_dlfcn.o) references dlopen/dlclose/
+# dlsym/dlerror/dladdr; glibc < 2.34 keeps those in libdl (e.g. the Guix
+# riscv64 cross toolchain ships glibc 2.31), so -ldl must follow -lcrypto.
+# Harmless on glibc >= 2.34, where libdl is an empty compat archive.
+test_test_syscoin_LDADD += -ldl
+endif
 test_test_syscoin_LDFLAGS = $(RELDFLAGS) $(AM_LDFLAGS) $(LIBTOOL_APP_LDFLAGS) $(PTHREAD_FLAGS) -static
 
 if ENABLE_ZMQ

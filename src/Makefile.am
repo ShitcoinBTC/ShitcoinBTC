@@ -958,6 +958,13 @@ syscoin_bin_ldadd = \
 syscoin_bin_ldadd += $(BDB_LIBS) $(MINIUPNPC_LIBS) $(NATPMP_LIBS) $(EVENT_PTHREADS_LIBS) $(EVENT_LIBS) $(ZMQ_LIBS) $(SQLITE_LIBS) $(GMP_LIBS)
 # -lssl -lcrypto for the TLS client in wallet/rpc/vault.cpp (BTC co-hold check)
 syscoin_bin_ldadd += -lssl -lcrypto
+if TARGET_LINUX
+# static libcrypto's DSO loader (dso_dlfcn.o) references dlopen/dlclose/
+# dlsym/dlerror/dladdr; glibc < 2.34 keeps those in libdl (e.g. the Guix
+# riscv64 cross toolchain ships glibc 2.31), so -ldl must follow -lcrypto.
+# Harmless on glibc >= 2.34, where libdl is an empty compat archive.
+syscoin_bin_ldadd += -ldl
+endif
 if TARGET_WINDOWS
 # OpenSSL's CAPI engine needs Windows CryptoAPI
 syscoin_bin_ldadd += -lcrypt32
