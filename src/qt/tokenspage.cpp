@@ -357,7 +357,7 @@ void TokensPage::rpcCall(const QString& method, const QJsonArray& params,
     QNetworkRequest request(QUrl(endpointEdit->text().trimmed()));
     request.setHeader(QNetworkRequest::ContentTypeHeader, "application/json");
     QNetworkReply* reply = net->post(request, QJsonDocument(req).toJson(QJsonDocument::Compact));
-    connect(reply, &QNetworkReply::finished, this, [this, reply, cb, method]() {
+    connect(reply, &QNetworkReply::finished, this, [reply, cb, method]() {
         reply->deleteLater();
         if (reply->error() != QNetworkReply::NoError) {
             cb(QJsonValue(), tr("Network error (%1): %2").arg(method, reply->errorString()));
