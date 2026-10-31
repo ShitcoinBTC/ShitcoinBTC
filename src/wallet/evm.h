@@ -6,6 +6,7 @@
 #define SYSCOIN_WALLET_EVM_H
 
 #include <key.h>
+#include <threadsafety.h>
 
 #include <cstdint>
 #include <string>

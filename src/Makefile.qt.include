@@ -132,6 +132,7 @@ SYSCOIN_QT_H = \
   qt/intro.h \
   qt/macdockiconhandler.h \
   qt/macnotificationhandler.h \
+  qt/lotterypage.h \
   qt/macos_appnap.h \
   qt/modaloverlay.h \
   qt/masternodelist.h \

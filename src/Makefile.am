@@ -157,6 +157,7 @@ SYSCOIN_CORE_H = \
   batchedlogger.h \
   bech32.h \
   bip324.h \
+  bip39.h \
   blockencodings.h \
   blockfilter.h \
   chain.h \
@@ -319,6 +320,7 @@ SYSCOIN_CORE_H = \
   script/sign.h \
   script/signingprovider.h \
   script/solver.h \
+  script/vault.h \
   shutdown.h \
   signet.h \
   streams.h \
@@ -374,6 +376,7 @@ SYSCOIN_CORE_H = \
   util/spanparsing.h \
   util/string.h \
   util/syserror.h \
+  util/system.h \
   util/thread.h \
   util/threadinterrupt.h \
   util/threadnames.h \
