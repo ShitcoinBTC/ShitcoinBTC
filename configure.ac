@@ -676,6 +676,12 @@ AC_ARG_ENABLE([util-wallet],
   [build_syscoin_wallet=$enableval],
   [build_syscoin_wallet=$build_syscoin_utils])
 
+AC_ARG_ENABLE([util-util],
+  [AS_HELP_STRING([--enable-util-util],
+  [build syscoin-util])],
+  [build_syscoin_util=$enableval],
+  [build_syscoin_util=$build_syscoin_utils])
+
 AC_ARG_WITH([libs],
   [AS_HELP_STRING([--with-libs],
   [build libraries (default=yes)])],
@@ -1666,6 +1672,10 @@ AC_MSG_RESULT($build_syscoin_tx)
 AC_MSG_CHECKING([whether to build syscoin-wallet])
 AM_CONDITIONAL([BUILD_SYSCOIN_WALLET], [test $build_syscoin_wallet = "yes"])
 AC_MSG_RESULT($build_syscoin_wallet)
+
+AC_MSG_CHECKING([whether to build syscoin-util])
+AM_CONDITIONAL([BUILD_SYSCOIN_UTIL], [test $build_syscoin_util = "yes"])
+AC_MSG_RESULT($build_syscoin_util)
 
 AC_MSG_CHECKING([whether to build libraries])
 AM_CONDITIONAL([BUILD_SYSCOIN_LIBS], [test $build_syscoin_libs = "yes"])

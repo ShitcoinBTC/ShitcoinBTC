@@ -107,6 +107,10 @@ if BUILD_SYSCOIN_TX
   bin_PROGRAMS += syscoin-tx
 endif
 
+if BUILD_SYSCOIN_UTIL
+  bin_PROGRAMS += syscoin-util
+endif
+
 if ENABLE_WALLET
 if BUILD_SYSCOIN_WALLET
   bin_PROGRAMS += syscoin-wallet
@@ -1008,6 +1012,34 @@ syscoin_tx_LDADD = \
   $(LIBSYSCOIN_UTIL) \
   $(LIBSYSCOIN_CONSENSUS) \
   $(LIBSYSCOIN_CRYPTO) \
+  $(LIBLEVELDB) \
+  $(LIBMEMENV) \
+  $(LIBDASHBLS) \
+  $(LIBSECP256K1) \
+  $(LIBNEVM) \
+  $(GMP_LIBS)
+#
+
+# syscoin-util binary #
+syscoin_util_SOURCES = syscoin-util.cpp
+syscoin_util_CPPFLAGS = $(AM_CPPFLAGS) $(SYSCOIN_INCLUDES)
+syscoin_util_CXXFLAGS = $(AM_CXXFLAGS) $(PIE_FLAGS)
+syscoin_util_LDFLAGS = $(RELDFLAGS) $(AM_LDFLAGS) $(LIBTOOL_APP_LDFLAGS) $(PTHREAD_FLAGS)
+
+if TARGET_WINDOWS
+syscoin_util_SOURCES += syscoin-util-res.rc
+endif
+
+# LIBUNIVALUE comes after LIBSYSCOIN_COMMON here (unlike syscoin-tx):
+# common's args/settings objects reference UniValue symbols that
+# syscoin-util's own object does not pull in first, and static archive
+# linking does not rescan earlier archives for them.
+syscoin_util_LDADD = \
+  $(LIBSYSCOIN_COMMON) \
+  $(LIBSYSCOIN_UTIL) \
+  $(LIBSYSCOIN_CONSENSUS) \
+  $(LIBSYSCOIN_CRYPTO) \
+  $(LIBUNIVALUE) \
   $(LIBLEVELDB) \
   $(LIBMEMENV) \
   $(LIBDASHBLS) \
