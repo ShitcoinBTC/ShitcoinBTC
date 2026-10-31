@@ -3,6 +3,7 @@
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
 #include <addresstype.h>
+#include <chainparams.h>
 #include <coins.h>
 #include <common/system.h>
 #include <consensus/consensus.h>
@@ -10,6 +11,7 @@
 #include <consensus/tx_verify.h>
 #include <node/miner.h>
 #include <policy/policy.h>
+#include <pow.h>
 #include <test/util/random.h>
 #include <test/util/txmempool.h>
 #include <timedata.h>
@@ -516,11 +518,17 @@ void MinerTestingSetup::TestBasicMining(const CScript& scriptPubKey, const std::
     auto pblocktemplate = AssemblerForTest(tx_mempool).CreateNewBlock(scriptPubKey);
     BOOST_CHECK(pblocktemplate);
 
-    // None of the of the absolute height/time locked tx should have made
-    // it into the template because we still check IsFinalTx in CreateNewBlock,
-    // but relative locked txs will if inconsistently added to mempool.
-    // For now these will still generate a valid template until BIP68 soft fork
-    BOOST_CHECK_EQUAL(pblocktemplate->block.vtx.size(), 3U);
+    // None of the absolute height/time locked tx should have made it
+    // into the template because we still check IsFinalTx in CreateNewBlock.
+    // The relative locked txs must stay out too: CSV (BIP68) is active
+    // from height 1 on this chain, so ConnectBlock would reject a block
+    // containing them (bad-txns-nonfinal), and the assembler now skips
+    // sequence-nonfinal packages in TestPackageTransactions. Upstream's
+    // version of this check expected 3 transactions on the premise that
+    // a valid template could still be generated "until BIP68 soft fork";
+    // that premise does not hold on a chain with CSV always active, so
+    // only the coinbase remains.
+    BOOST_CHECK_EQUAL(pblocktemplate->block.vtx.size(), 1U);
     // However if we advance height by 1 and time by SEQUENCE_LOCK_TIME, all of them should be mined
     for (int i = 0; i < CBlockIndex::nMedianTimeSpan; ++i) {
         CBlockIndex* ancestor{Assert(m_node.chainman->ActiveChain().Tip()->GetAncestor(m_node.chainman->ActiveChain().Tip()->nHeight - i))};
@@ -638,6 +646,14 @@ BOOST_AUTO_TEST_CASE(CreateNewBlock_validity)
             txCoinbase.vin[0].scriptSig = CScript{} << (m_node.chainman->ActiveChain().Height() + 1) << bi.extranonce;
             txCoinbase.vout.resize(1); // Ignore the (optional) segwit commitment added by CreateNewBlock (as the hardcoded nonces don't account for this)
             txCoinbase.vout[0].scriptPubKey = CScript();
+            // Drop the witness reserved value CreateNewBlock put on the
+            // coinbase along with the commitment output removed above:
+            // segwit is active from height 0 on this chain (SegwitHeight=0),
+            // so a block carrying witness data but no witness commitment
+            // is rejected ("unexpected-witness"). Upstream's fixture chain
+            // only activates segwit far past these heights, so it never
+            // had to strip it.
+            txCoinbase.vin[0].scriptWitness.SetNull();
             pblock->vtx[0] = MakeTransactionRef(std::move(txCoinbase));
             if (txFirst.size() == 0)
                 baseheight = m_node.chainman->ActiveChain().Height();
@@ -645,6 +661,17 @@ BOOST_AUTO_TEST_CASE(CreateNewBlock_validity)
                 txFirst.push_back(pblock->vtx[0]);
             pblock->hashMerkleRoot = BlockMerkleRoot(*pblock);
             pblock->nNonce = bi.nonce;
+            // The BLOCKINFO nonce table was computed for upstream
+            // Bitcoin's fixture chain. This chain's genesis block and
+            // coinbase differ, so the table entries do not satisfy proof
+            // of work for these headers (about half fail with
+            // "high-hash", and the rest then fail "prev-blk-not-found"
+            // behind the first rejected parent). Regtest's target is
+            // trivial, so start from the table value and grind, the same
+            // way the test framework's MineBlock mines regtest blocks.
+            while (!CheckProofOfWork(pblock->GetHash(), pblock->nBits, Params().GetConsensus())) {
+                ++pblock->nNonce;
+            }
         }
         std::shared_ptr<const CBlock> shared_pblock = std::make_shared<const CBlock>(*pblock);
         BOOST_CHECK(Assert(m_node.chainman)->ProcessNewBlock(shared_pblock, true, true, nullptr));
