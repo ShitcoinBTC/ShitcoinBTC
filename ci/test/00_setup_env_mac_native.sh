@@ -26,5 +26,15 @@ else
 fi
 export CPATH="${BREW_PREFIX}/include"
 export LDFLAGS="-L${BREW_PREFIX}/lib -L${BREW_PREFIX}/opt $LDFLAGS"
+# Set PKG_CONFIG_PATH explicitly, with the exact brew sqlite3/qt@5
+# entries configure.ac would add, so the value is identical when the
+# main configure starts and when it invokes the dashbls sub-configure
+# with the shared config.cache. Otherwise the sub-configure aborts:
+# "'PKG_CONFIG_PATH' was not set in the previous run" (autoconf
+# precious-variable cache check). configure.ac now also only prepends
+# these entries when they are missing, keeping the value stable.
+if command -v brew >/dev/null 2>&1; then
+  export PKG_CONFIG_PATH="$(brew --prefix qt@5 2>/dev/null)/lib/pkgconfig:$(brew --prefix sqlite3 2>/dev/null)/lib/pkgconfig:${BREW_PREFIX}/lib/pkgconfig:${BREW_PREFIX}/share/pkgconfig:$PKG_CONFIG_PATH"
+fi
 export RUN_FUZZ_TESTS=true
 export FUZZ_TESTS_CONFIG="--exclude banman"  # https://github.com/bitcoin/bitcoin/issues/27924

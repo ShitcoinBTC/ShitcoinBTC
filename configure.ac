@@ -765,11 +765,19 @@ case $host in
          fi
 
          if test "$use_sqlite" != "no" && $BREW list --versions sqlite3 >/dev/null; then
-           export PKG_CONFIG_PATH="$($BREW --prefix sqlite3 2>/dev/null)/lib/pkgconfig:$PKG_CONFIG_PATH"
+           sqlite3_pkgconfig="$($BREW --prefix sqlite3 2>/dev/null)/lib/pkgconfig"
+           case ":${PKG_CONFIG_PATH}:" in
+             *":${sqlite3_pkgconfig}:"*) ;;
+             *) export PKG_CONFIG_PATH="${sqlite3_pkgconfig}:${PKG_CONFIG_PATH}" ;;
+           esac
          fi
 
          if $BREW list --versions qt@5 >/dev/null; then
-           export PKG_CONFIG_PATH="$($BREW --prefix qt@5 2>/dev/null)/lib/pkgconfig:$PKG_CONFIG_PATH"
+           qt5_pkgconfig="$($BREW --prefix qt@5 2>/dev/null)/lib/pkgconfig"
+           case ":${PKG_CONFIG_PATH}:" in
+             *":${qt5_pkgconfig}:"*) ;;
+             *) export PKG_CONFIG_PATH="${qt5_pkgconfig}:${PKG_CONFIG_PATH}" ;;
+           esac
          fi
 
          gmp_prefix=$($BREW --prefix gmp 2>/dev/null)
