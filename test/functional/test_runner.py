@@ -414,6 +414,13 @@ BASE_SCRIPTS = [
 SKIPPED = [
     'p2p_dos_header_tree.py',
     'rpc_getblockstats.py',
+    # Disabled below with "re-enable with SYS data": the snapshot data
+    # this test needs does not exist for this chain yet.
+    'feature_assumeutxo.py',
+    # Not a test-framework test: a manual script that drives a live
+    # external testnet node over RPC (hardcoded endpoint/credentials),
+    # so it cannot run under this runner or in CI.
+    'allocation_mint_testnet.py',
 ]
 
 # Place EXTENDED_SCRIPTS first since it has the 3 longest running tests
