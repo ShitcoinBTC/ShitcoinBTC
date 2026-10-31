@@ -554,7 +554,7 @@ static void WriteVaultRecords(const CWallet& wallet, const UniValue& records)
 
 //! Chain median-time-past, preferred for maturity checks; falls back to node
 //! time minus 2h (conservative: locks mature later, never earlier).
-static int64_t VaultChainMTP(const CWallet& wallet)
+static int64_t VaultChainMTP(const CWallet& wallet) EXCLUSIVE_LOCKS_REQUIRED(wallet.cs_wallet)
 {
     int64_t mtp = 0;
     if (wallet.chain().findBlock(wallet.GetLastBlockHash(), interfaces::FoundBlock().mtpTime(mtp)) && mtp > 0) {
