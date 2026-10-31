@@ -21,7 +21,7 @@ jobs:
           - os: linux
             runner: ubuntu-22.04
           - os: macos
-            runner: macos-14
+            runner: macos-15
           - os: windows
             runner: ubuntu-24.04 # cross-compiled via depends + mingw (needs newer mingw GCC for C++20)
 
@@ -100,7 +100,7 @@ jobs:
           - os: linux
             runner: ubuntu-22.04
           - os: macos
-            runner: macos-14
+            runner: macos-15
           - os: windows
             runner: ubuntu-24.04 # cross-compiled via depends + mingw (needs newer mingw GCC for C++20)
 
