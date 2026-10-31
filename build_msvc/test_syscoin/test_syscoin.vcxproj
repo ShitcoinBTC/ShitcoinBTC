@@ -70,7 +70,7 @@
       <JsonTestFile Include="..\..\src\test\data\*.json" />
       <RawTestFile Include="..\..\src\test\data\*.raw" />
     </ItemGroup>
-    <HeaderFromHexdump RawFilePath="%(RawTestFile.FullPath)" HeaderFilePath="%(RawTestFile.FullPath).h" SourceHeader="static unsigned const char %(RawTestFile.Filename)_raw[] = {" SourceFooter="};" />
+    <HeaderFromHexdump RawFilePath="%(RawTestFile.FullPath)" HeaderFilePath="%(RawTestFile.FullPath).h" SourceHeader="namespace raw_tests{ static unsigned const char %(RawTestFile.Filename)[] = {" SourceFooter="};};" />
     <HeaderFromHexdump RawFilePath="%(JsonTestFile.FullPath)" HeaderFilePath="%(JsonTestFile.FullPath).h" SourceHeader="#include &lt;string&gt;&#x0D;&#x0A;namespace json_tests{ static const std::string %(JsonTestFile.Filename){" SourceFooter="};}" />
   </Target>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
