@@ -3602,6 +3602,13 @@ void CWallet::SetupLegacyScriptPubKeyMan()
 
 const CKeyingMaterial& CWallet::GetEncryptionKey() const
 {
+    // vMasterKey is GUARDED_BY(cs_wallet); hold the (recursive) mutex
+    // across the return. Callers use the reference transiently as an
+    // argument to EncryptSecret/DecryptKey. Newer clang
+    // (-Wthread-safety-reference-return) rejects returning the guarded
+    // member with no lock held; the ScriptPubKeyMan callers hold their
+    // own keystore locks, not cs_wallet.
+    LOCK(cs_wallet);
     return vMasterKey;
 }
 
