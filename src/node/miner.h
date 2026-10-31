@@ -188,7 +188,7 @@ private:
     /** Add transactions based on feerate including unconfirmed ancestors
       * Increments nPackagesSelected / nDescendantsUpdated with corresponding
       * statistics from the package selection (for logging statistics). */
-    void addPackageTxs(const CTxMemPool& mempool, int& nPackagesSelected, int& nDescendantsUpdated) EXCLUSIVE_LOCKS_REQUIRED(mempool.cs);
+    void addPackageTxs(const CTxMemPool& mempool, int& nPackagesSelected, int& nDescendantsUpdated) EXCLUSIVE_LOCKS_REQUIRED(mempool.cs, ::cs_main);
 
     // helper functions for addPackageTxs()
     /** Remove confirmed (inBlock) entries from given set */
@@ -200,7 +200,7 @@ private:
       * These checks should always succeed, and they're here
       * only as an extra check in case of suboptimal node configuration */
     // SYSCOIN
-    bool TestPackageTransactions(const CTxMemPool& mempool, const CTxMemPool::setEntries& package) const EXCLUSIVE_LOCKS_REQUIRED(mempool.cs);
+    bool TestPackageTransactions(const CTxMemPool& mempool, const CTxMemPool::setEntries& package) const EXCLUSIVE_LOCKS_REQUIRED(mempool.cs, ::cs_main);
     /** Sort the package in an order that is valid to appear in a block */
     void SortForBlock(const CTxMemPool::setEntries& package, std::vector<CTxMemPool::txiter>& sortedEntries);
 };
