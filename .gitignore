@@ -164,5 +164,3 @@ dist/
 .vscode
 *.old
 
-# Local build stub, never commit
-bin/linux/x86_64/sysgeth
