@@ -303,6 +303,35 @@ uint64_t CompressAmount(uint64_t n)
     }
 }
 
+bool TryCompressAmount(uint64_t n, uint64_t& cOut)
+{
+    if (n == 0) {
+        cOut = 0;
+        return true;
+    }
+    int e = 0;
+    while (((n % 10) == 0) && e < 9) {
+        n /= 10;
+        e++;
+    }
+    if (e < 9) {
+        uint64_t d = (n % 10);
+        n /= 10;
+        // The packed value is 1 + (n*9 + d - 1)*10 + e. The factor
+        // (n*9 + d - 1) itself always fits in a uint64_t for
+        // n <= MAX_MONEY, but the final *10 overflows once the amount
+        // exceeds ~2.049e18. Check before multiplying.
+        uint64_t m = n * 9 + d - 1;
+        if (m > (std::numeric_limits<uint64_t>::max() - 1 - static_cast<uint64_t>(e)) / 10) {
+            return false;
+        }
+        cOut = 1 + m * 10 + static_cast<uint64_t>(e);
+        return true;
+    }
+    cOut = 1 + (n - 1) * 10 + 9;
+    return true;
+}
+
 uint64_t DecompressAmount(uint64_t x)
 {
     // x = 0  OR  x = 1+10*(9*n + d - 1) + e  OR  x = 1+10*(n - 1) + 9

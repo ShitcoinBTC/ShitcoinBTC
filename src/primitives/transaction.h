@@ -310,6 +310,20 @@ uint64_t CompressAmount(uint64_t nAmount);
 
 uint64_t DecompressAmount(uint64_t nAmount);
 
+/**
+ * Legacy amount compression, with an exactness check.
+ *
+ * The classic encoding packs an amount into a uint64_t as
+ * 1 + (n*9 + d - 1)*10 + e. That product exceeds 2^64 for amounts above
+ * ~2.049e18 base units, so on chains whose MAX_MONEY is that large
+ * (here: 21e9 * COIN = 2.1e18) CompressAmount silently wraps and the
+ * amount cannot be recovered by DecompressAmount. TryCompressAmount
+ * computes the same encoding but returns false (leaving cOut untouched)
+ * when it would not fit exactly, so serializers can fall back to an
+ * escape representation instead of writing a corrupted code.
+ */
+bool TryCompressAmount(uint64_t nAmount, uint64_t& cOut);
+
 /** Compact serializer for scripts.
  *
  *  It detects common cases and encodes them much more efficiently.
@@ -369,13 +383,30 @@ struct AmountCompression
 {
     template<typename Stream, typename I> void Ser(Stream& s, I val)
     {
-        s << VARINT(CompressAmount(val));
+        uint64_t c;
+        if (TryCompressAmount(static_cast<uint64_t>(val), c)) {
+            s << VARINT(c);
+        } else {
+            // Amount too large for the legacy encoding to represent
+            // exactly: escape with the sentinel (never a valid legacy
+            // code under the exactness rule above) followed by the raw
+            // amount. Only amounts above ~2.049e18 base units take this
+            // path; every smaller amount keeps its historical bytes.
+            s << VARINT(std::numeric_limits<uint64_t>::max());
+            s << VARINT(static_cast<uint64_t>(val));
+        }
     }
     template<typename Stream, typename I> void Unser(Stream& s, I& val)
     {
         uint64_t v;
         s >> VARINT(v);
-        val = DecompressAmount(v);
+        if (v == std::numeric_limits<uint64_t>::max()) {
+            uint64_t raw;
+            s >> VARINT(raw);
+            val = static_cast<I>(raw);
+        } else {
+            val = DecompressAmount(v);
+        }
     }
 };
 
@@ -385,7 +416,14 @@ struct AssetCoinInfoCompression
     {
         s << VARINT(val.nAsset);
         if(val.nAsset > 0) {
-            s << VARINT(CompressAmount(val.nValue));
+            uint64_t c;
+            if (TryCompressAmount(static_cast<uint64_t>(val.nValue), c)) {
+                s << VARINT(c);
+            } else {
+                // See AmountCompression::Ser for the escape rationale.
+                s << VARINT(std::numeric_limits<uint64_t>::max());
+                s << VARINT(static_cast<uint64_t>(val.nValue));
+            }
         }
     }
     template<typename Stream, typename I> void Unser(Stream& s, I& val)
@@ -394,7 +432,13 @@ struct AssetCoinInfoCompression
         if(val.nAsset > 0) {
             uint64_t v;
             s >> VARINT(v);
-            val.nValue = DecompressAmount(v);
+            if (v == std::numeric_limits<uint64_t>::max()) {
+                uint64_t raw;
+                s >> VARINT(raw);
+                val.nValue = static_cast<CAmount>(raw);
+            } else {
+                val.nValue = DecompressAmount(v);
+            }
         }
     }
 };
