@@ -285,10 +285,68 @@ bool BlockAssembler::TestPackage(uint64_t packageSize, int64_t packageSigOpsCost
 
 // Perform transaction-level checks before adding to block:
 // - transaction finality (locktime)
+// - BIP68 sequence finality, on chains where CSV is active for the
+//   block being assembled. ConnectBlock rejects such transactions
+//   (bad-txns-nonfinal), so a package containing one can never be part
+//   of a valid template. The nLockTime check below does not catch
+//   them (their nLockTime is 0), and without this check CreateNewBlock
+//   threw in TestBlockValidity whenever a not-yet-mature
+//   relative-locktime transaction sat in the mempool, failing
+//   getblocktemplate outright instead of returning a template without
+//   that transaction.
 bool BlockAssembler::TestPackageTransactions(const CTxMemPool& mempool, const CTxMemPool::setEntries& package) const
 {
     // SYSCOIN
     AssertLockHeld(mempool.cs);
+    CBlockIndex* tip = m_chainstate.m_chain.Tip();
+    if (tip != nullptr && DeploymentActiveAfter(tip, m_chainstate.m_chainman, Consensus::DEPLOYMENT_CSV)) {
+        // Stand-in for the block being assembled, so sequence locks are
+        // evaluated exactly as ConnectBlock will evaluate them (its
+        // median time past includes the new block's own time).
+        CBlockIndex block_index;
+        block_index.pprev = tip;
+        block_index.nHeight = nHeight;
+        block_index.nTime = pblocktemplate->block.nTime;
+        // Outputs created by this package, or by packages already
+        // selected into this block, are created at the new block's
+        // height when ConnectBlock applies the block, so inputs
+        // spending them are evaluated against nHeight, not against the
+        // mempool's placeholder height.
+        std::set<uint256> package_txids;
+        for (const CTxMemPool::txiter& it : package) {
+            package_txids.insert(it->GetTx().GetHash());
+        }
+        for (const CTxMemPool::txiter& it : inBlock) {
+            package_txids.insert(it->GetTx().GetHash());
+        }
+        for (const CTxMemPool::txiter& it : package) {
+            const CTransaction& tx = it->GetTx();
+            if (tx.nVersion < 2) continue; // BIP68 only applies from version 2
+            std::vector<int> prev_heights;
+            prev_heights.reserve(tx.vin.size());
+            bool inputs_known = true;
+            for (const CTxIn& txin : tx.vin) {
+                if (package_txids.contains(txin.prevout.hash)) {
+                    prev_heights.push_back(nHeight);
+                    continue;
+                }
+                const Coin& coin = m_chainstate.CoinsTip().AccessCoin(txin.prevout);
+                if (coin.IsSpent()) {
+                    // Input availability is judged elsewhere (and an
+                    // unavailable input fails block validation on its
+                    // own); with an unknown input height this
+                    // transaction's sequence locks cannot be evaluated
+                    // here, so leave it to those checks.
+                    inputs_known = false;
+                    break;
+                }
+                prev_heights.push_back(int(coin.nHeight));
+            }
+            if (inputs_known && !SequenceLocks(tx, LOCKTIME_VERIFY_SEQUENCE, prev_heights, block_index)) {
+                return false;
+            }
+        }
+    }
     int nCountAncestorNEVMDataTxs = 0;
     for (CTxMemPool::txiter it : package) {
         if (!IsFinalTx(it->GetTx(), nHeight, m_lock_time_cutoff)) {
