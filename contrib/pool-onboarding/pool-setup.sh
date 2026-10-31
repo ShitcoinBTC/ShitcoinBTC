@@ -117,10 +117,15 @@ SYSGETH_URL="https://github.com/ShitcoinBTC/sysgeth/releases/download/v1.0.0/sys
 SYSGETH_MD5="95601fd2e3f0829521bd8206df1f7b4b"
 SNAP_URL="https://shitcoinbtc.xyz/snapshots/shitcoin-chain-snapshot-latest.tar.gz"
 PROXY_URL="https://shitcoinbtc.xyz/downloads/shitcoin-stratum-proxy.py"
+WATCHDOG_URL="https://shitcoinbtc.xyz/downloads/nevm-wedge-watchdog.py"
+# NEVM wedge watchdog (kit item A3-K1, 2026-10-30): hash filled in by
+# the kit manifest alignment pass; the installer step that uses it is
+# non-fatal (see step 6) -- a missing watchdog never blocks an install.
+WATCHDOG_SHA256="9279d90b8130a874fd93598788c0dc01c9961810f5c8160f92a5868778e902a2"
 # Stratum proxy: updated on the morning of the block 88,000 fork so it stamps
 # AuxPoW chain ID 29 on new blocks. A pre-fork proxy copy stamps chain ID 16
 # and its blocks are rejected. Verify your copy against this hash.
-PROXY_SHA256="4ace8e29f66578cdf9ae6de2491f2eb564ae2d1efe02358bf651f2e10396c18d"
+PROXY_SHA256="b561c6ef146178def8d729c29860a8c9a31c038175e045674f951b53c0d7a39e"
 
 HOME_DIR="/home/$DATADIR_USER"
 SYSCOIN_DIR="$HOME_DIR/.syscoin"
@@ -409,9 +414,52 @@ RestartSec=10
 WantedBy=multi-user.target
 EOF
 
+# NEVM wedge watchdog (kit item A3-K1, 2026-10-30): detection + alarm
+# ONLY. The v5.0.9 daemon can wedge its NEVM template fetch (a ZMQ
+# timeout EFSM-poisons the shared REQ socket); from then on every
+# template fetch fails with "Could not fetch NEVM block
+# nevm-header-not-sent" in debug.log, block production stops, and
+# nothing self-heals -- a daemon restart is the only exit until a
+# patched daemon ships. This watchdog tails debug.log and raises the
+# alarm loudly after 3 consecutive hits. It never restarts anything
+# itself. NON-FATAL by design: if the download or checksum fails the
+# install continues with a loud warning (install it by hand later --
+# see the pool setup guide).
+echo "==> NEVM wedge watchdog (detection + alarm only)"
+if wget -q "$WATCHDOG_URL" -O /opt/shitcoin-stratum-proxy/nevm-wedge-watchdog.py \
+   && [ "$(sha256sum /opt/shitcoin-stratum-proxy/nevm-wedge-watchdog.py | awk '{print $1}')" = "$WATCHDOG_SHA256" ]; then
+  chmod 755 /opt/shitcoin-stratum-proxy/nevm-wedge-watchdog.py
+  chown "$DATADIR_USER:$DATADIR_USER" /opt/shitcoin-stratum-proxy/nevm-wedge-watchdog.py
+  cat > /etc/systemd/system/nevm-wedge-watchdog.service <<EOF
+[Unit]
+Description=ShitcoinBtc NEVM wedge watchdog (detection + alarm only)
+After=network.target syscoind.service
+Wants=syscoind.service
+[Service]
+Type=simple
+User=$DATADIR_USER
+Group=$DATADIR_USER
+ExecStart=/usr/bin/python3 /opt/shitcoin-stratum-proxy/nevm-wedge-watchdog.py --log $SYSCOIN_DIR/debug.log --threshold 3 --alarm-file /var/lib/shitcoin-stratum-proxy/spool/ALARM_NEVM_WEDGE.txt
+Restart=always
+RestartSec=10
+[Install]
+WantedBy=multi-user.target
+EOF
+  echo "    watchdog installed: it alarms (journal + ALARM_NEVM_WEDGE.txt"
+  echo "    in the proxy spool dir) if the daemon log repeats the NEVM"
+  echo "    wedge signature; the fix then is: systemctl restart syscoind"
+else
+  echo "    WARNING: NEVM wedge watchdog NOT installed (download or" >&2
+  echo "    checksum failed). The install continues, but install the" >&2
+  echo "    watchdog by hand from the downloads page -- without it a" >&2
+  echo "    wedged NEVM template fetch is silent until blocks stop." >&2
+  rm -f /opt/shitcoin-stratum-proxy/nevm-wedge-watchdog.py
+fi
+
 echo "==> starting services"
 systemctl daemon-reload
 systemctl enable --now syscoind shitcoin-stratum-proxy
+systemctl enable --now nevm-wedge-watchdog 2>/dev/null || true
 
 echo "==> 7/7 dedicated acceptance wallet"
 # Parameterless getauxblock is a wallet RPC: with no wallet loaded it
@@ -509,6 +557,14 @@ echo "  must show 'new tip <height> ... rebuilding job'. (blocknotify"
 echo "  wiring IS required on the yiimp-adapter and own-software paths;"
 echo "  see guide section 8A -- one blocknotify= line only, chained with"
 echo "  ';' if two consumers need a poke.)"
+echo ""
+echo "  NEVM WEDGE WATCHDOG (kit item A3-K1): if installed above, the"
+echo "  nevm-wedge-watchdog service tails the daemon log for the wedge"
+echo "  signature 'Could not fetch NEVM block nevm-header-not-sent'."
+echo "  On alarm (journal + ALARM_NEVM_WEDGE.txt in the proxy spool"
+echo "  dir) the daemon's template fetch is wedged and blocks have"
+echo "  stopped: run 'systemctl restart syscoind' -- the restart is"
+echo "  the fix; the watchdog only detects and alarms."
 echo ""
 echo "Note on the snapshot: it was built 2026-10-18 at height 88,386, so the"
 echo "node still has roughly 22,000 blocks to catch up (as of 2026-10-26) --"
