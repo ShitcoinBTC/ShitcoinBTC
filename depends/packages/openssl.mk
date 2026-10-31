@@ -30,6 +30,16 @@ endef
 $(package)_config_opts_mingw32=--cross-compile-prefix=$(host)-
 $(package)_config_opts_linux=--cross-compile-prefix=$(host)-
 $(package)_config_opts_darwin=CC="$(host_CC)" AR="$(host_AR)" RANLIB="$(host_RANLIB)"
+# The darwin linker flags from hosts/darwin.mk must reach Configure too:
+# without them OpenSSL's links (e.g. providers/legacy.dylib, apps/openssl)
+# invoke the build machine's GNU ld, which rejects the Mach-O link with
+# "ld: unrecognised emulation mode: llvm". Configure routes bare -f/-m
+# options into its added CFLAGS (also present on its link lines) and
+# -Wl, options into its added LDFLAGS. Use joined = forms only: a bare
+# "-mmacos-version-min 11.0" would make Configure treat "11.0" as a
+# second target and abort.
+$(package)_config_opts_darwin+=-fuse-ld=lld -mlinker-version=$(LLD_VERSION) -mmacos-version-min=$(OSX_MIN_VERSION)
+$(package)_config_opts_darwin+=-Wl,-platform_version,macos,$(OSX_MIN_VERSION),$(OSX_SDK_VERSION) -Wl,-no_adhoc_codesign
 
 $(package)_target_mingw32_x86_64=mingw64
 $(package)_target_linux_x86_64=linux-x86_64
