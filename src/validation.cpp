@@ -2352,7 +2352,7 @@ bool GetNEVMData(BlockValidationState& state, const CBlock& block, CNEVMHeader &
     CDataStream ds(vchData, SER_NETWORK, PROTOCOL_VERSION);
     try {
         ds >> evmBlockHeader;
-    } catch (std::exception& e) {
+    } catch (std::exception&) {
         return state.Invalid(BlockValidationResult::BLOCK_CONSENSUS, "nevm-block-unserialize");
     }
     return true;
@@ -7168,7 +7168,7 @@ bool CBlockIndexDB::Prune(const uint32_t &nHeight, CDBBatch &batch) {
             }
             pcursor->Next();
         }
-        catch (std::exception &e) {
+        catch (std::exception &) {
             return error("%s() : deserialize error", __func__);
         }
     }
