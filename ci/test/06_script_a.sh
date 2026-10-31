@@ -41,7 +41,7 @@ CI_EXEC "${BASE_ROOT_DIR}/configure" --cache-file=config.cache "$SYSCOIN_CONFIG_
 
 CI_EXEC make distdir VERSION="$HOST"
 
-export P_CI_DIR="${BASE_BUILD_DIR}/syscoin-$HOST"
+export P_CI_DIR="${BASE_BUILD_DIR}/shitcoin-$HOST"
 
 CI_EXEC ./configure --cache-file=../config.cache "$SYSCOIN_CONFIG_ALL" "$SYSCOIN_CONFIG" || ( (CI_EXEC cat config.log) && false)
 
