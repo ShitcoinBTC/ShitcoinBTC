@@ -70,7 +70,8 @@ BOOST_AUTO_TEST_CASE(get_next_work_lower_limit_actual)
     BOOST_CHECK(PermittedDifficultyTransition(chainParams->GetConsensus(), pindexLast.nHeight+1, pindexLast.nBits, expected_nbits));
     arith_uint256 old_target;
     old_target.SetCompact(pindexLast.nBits);
-    unsigned int invalid_nbits = (old_target * 16).GetCompact();
+    arith_uint256 invalid_target = old_target * 16;
+    unsigned int invalid_nbits = invalid_target.GetCompact();
     BOOST_CHECK(!PermittedDifficultyTransition(chainParams->GetConsensus(), pindexLast.nHeight+1, pindexLast.nBits, invalid_nbits));
 }
 
@@ -92,7 +93,8 @@ BOOST_AUTO_TEST_CASE(get_next_work_upper_limit_actual)
     // limit (the 8x bound exceeds it and is capped): the retarget output
     // is permitted, a target above the pow limit is not.
     BOOST_CHECK(PermittedDifficultyTransition(chainParams->GetConsensus(), pindexLast.nHeight+1, pindexLast.nBits, expected_nbits));
-    unsigned int invalid_nbits = (UintToArith256(chainParams->GetConsensus().powLimit) * 2).GetCompact();
+    arith_uint256 over_limit = UintToArith256(chainParams->GetConsensus().powLimit) * 2;
+    unsigned int invalid_nbits = over_limit.GetCompact();
     BOOST_CHECK(!PermittedDifficultyTransition(chainParams->GetConsensus(), pindexLast.nHeight+1, pindexLast.nBits, invalid_nbits));
 }
 
