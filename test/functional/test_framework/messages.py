@@ -46,7 +46,12 @@ WITNESS_SCALE_FACTOR = 4
 MAX_NEVM_DATA_BLOCK = MAX_NEVM_DATA_BLOB * MAX_DATA_BLOBS
 NEVM_DATA_EXPIRE_TIME = 21600
 COIN = 100000000  # 1 sys in satoshis
-MAX_MONEY = 1000000000000000000 - 1
+# Must equal the consensus MAX_MONEY in src/consensus/amount.h
+# (21000000000 * COIN, the 21 billion supply cap). The previous value
+# was Syscoin's and made the vout-toolarge test cases construct outputs
+# that are in range on this chain, so the expected rejection never
+# fired.
+MAX_MONEY = 21000000000 * COIN
 
 MAX_BIP125_RBF_SEQUENCE = 0xfffffffd  # Sequence number that is rbf-opt-in (BIP 125) and csv-opt-out (BIP 68)
 # SYSCOIN
