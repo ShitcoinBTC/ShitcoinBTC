@@ -18,11 +18,18 @@ endef
 # --cross-compile-prefix so Configure picks up the depends cross toolchain
 # (<triplet>-gcc). darwin cannot use a prefix: the SDK-aware compiler is
 # `clang --target=<triplet> -isysroot...`, which a prefix cannot express
-# (and Configure would prepend the prefix to cc= anyway), so pass it and
-# the binutils explicitly as cc=/ar=/ranlib= assignments instead.
+# (and Configure would prepend the prefix to CC= anyway), so pass it and
+# the binutils explicitly as CC=/AR=/RANLIB= assignments instead.
+# These names MUST be uppercase: OpenSSL's Configure only recognises
+# uppercase make-variable assignments on its command line (its %user
+# table is keyed CC/AR/RANLIB/...). Lowercase cc=/ar=/ranlib= are
+# silently ignored, leaving the target template's default CC="cc" —
+# the build machine's native compiler — which compiles x86_64 inline
+# asm (crypto/bn/asm/x86_64-gcc.c) for the wrong target and fails with
+# "invalid output constraint '=a' in asm" on x86_64-apple-darwin.
 $(package)_config_opts_mingw32=--cross-compile-prefix=$(host)-
 $(package)_config_opts_linux=--cross-compile-prefix=$(host)-
-$(package)_config_opts_darwin=cc="$(host_CC)" ar="$(host_AR)" ranlib="$(host_RANLIB)"
+$(package)_config_opts_darwin=CC="$(host_CC)" AR="$(host_AR)" RANLIB="$(host_RANLIB)"
 
 $(package)_target_mingw32_x86_64=mingw64
 $(package)_target_linux_x86_64=linux-x86_64
