@@ -29,7 +29,7 @@ inline bool GetTxPayload(const std::vector<unsigned char>& payload, T& obj)
     CDataStream ds(payload, SER_NETWORK, PROTOCOL_VERSION);
     try {
         ds >> obj;
-    } catch (std::exception& e) {
+    } catch (std::exception&) {
         return false;
     }
     return true;
