@@ -89,4 +89,3 @@ EXTRA_DIST += doc/plot_capacity.png
 EXTRA_DIST += doc/plot_diff.png
 EXTRA_DIST += doc/plot_size.png
 EXTRA_DIST += doc/protocoltips.md
-EXTRA_DIST += tests/pyminisketch.py
