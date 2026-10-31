@@ -154,6 +154,7 @@ MACHO_ALLOWED_LIBRARIES = {
 'Metal', # 3D graphics
 'Security', # access control and authentication
 'QuartzCore', # animation
+'SystemConfiguration', # system framework; QtNetwork links it unconditionally on macOS (QHostInfo/SCDynamicStore), no Qt configure switch disables it
 }
 
 PE_ALLOWED_LIBRARIES = {
