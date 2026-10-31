@@ -23,17 +23,9 @@ minisketch_libminisketch_a_SOURCES += $(MINISKETCH_FIELD_GENERIC_HEADERS_INT) $(
 minisketch_libminisketch_a_CPPFLAGS = $(AM_CPPFLAGS) $(LIBMINISKETCH_CPPFLAGS)
 minisketch_libminisketch_a_CXXFLAGS = $(AM_CXXFLAGS) $(PIE_FLAGS)
 
-if ENABLE_TESTS
-if !ENABLE_FUZZ
-MINISKETCH_TEST = minisketch/test
-TESTS += $(MINISKETCH_TEST)
-check_PROGRAMS += $(MINISKETCH_TEST)
-
-minisketch_test_SOURCES = $(MINISKETCH_TEST_SOURCES_INT)
-minisketch_test_CPPFLAGS = $(AM_CPPFLAGS) $(LIBMINISKETCH_CPPFLAGS)
-minisketch_test_CXXFLAGS = $(AM_CXXFLAGS) $(PIE_FLAGS)
-minisketch_test_LDADD = $(MINISKETCH_LIBS)
-minisketch_test_LDFLAGS = $(RELDFLAGS) $(AM_LDFLAGS) $(LIBTOOL_APP_LDFLAGS) $(PTHREAD_FLAGS)
-
-endif
-endif
+# No minisketch/test check program: the vendored minisketch copy in this
+# repo has never shipped src/test.cpp (its only source), so the program
+# was never buildable here, and listing it made its missing source an
+# unconditional DISTFILES prerequisite that broke make dist/distdir.
+# Minisketch itself is exercised by test/minisketch_tests.cpp in the
+# main test suite.
