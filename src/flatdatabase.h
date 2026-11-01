@@ -51,7 +51,10 @@ private:
         ssObj << hash;
 
         // open output file, and associate with CAutoFile
-        FILE *file = fopen(pathDB.u8string().c_str(), "wb");
+        // fsbridge::fopen (not raw fopen on the UTF-8 path): on Windows the raw
+        // form resolves the path in the ANSI codepage and fails for any datadir
+        // containing characters outside it, losing sporks/mncache/governance state.
+        FILE *file = fsbridge::fopen(pathDB, "wb");
         CAutoFile fileout(file, CLIENT_VERSION);
         if (fileout.IsNull())
             return error("%s: Failed to open file %s", __func__, pathDB.u8string());
@@ -77,7 +80,8 @@ private:
 
         int64_t nStart = TicksSinceEpoch<std::chrono::milliseconds>(SystemClock::now());
         // open input file, and associate with CAutoFile
-        FILE *file = fopen(pathDB.u8string().c_str(), "rb");
+        // fsbridge::fopen: see CoreWrite for why raw fopen is wrong on Windows.
+        FILE *file = fsbridge::fopen(pathDB, "rb");
         CAutoFile filein(file, CLIENT_VERSION);
         if (filein.IsNull())
         {
