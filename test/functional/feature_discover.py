@@ -19,8 +19,12 @@ def is_valid_ipv4_address(address):
 
 
 def is_valid_ipv6_address(address):
+    # Strip any zone/scope index (e.g. "fe80::1%12" as reported in
+    # localaddresses on Windows): the zone is an OS interface identifier, not
+    # part of the address, and Windows' inet_pton rejects the suffixed form
+    # even though the address itself is valid.
     try:
-        socket.inet_pton(socket.AF_INET6, address)
+        socket.inet_pton(socket.AF_INET6, address.split("%")[0])
     except socket.error:
         return False
     return True
