@@ -39,6 +39,48 @@ class TestP2PConn(P2PInterface):
                 self.send_message(self.clsigs[inv.hash])
 
 class LLMQChainLocksTest(DashTestFramework):
+    def connect_nodes_after_restart(self, a, b):
+        """Reconnect two nodes after a restart and wait until the
+        connection is actually usable.
+
+        The framework's connect_nodes() snapshots each side's peer count
+        and then requires the handshaken-peer count to match the snapshot
+        exactly. That cannot work for restarted masternodes: their
+        automatic (deterministic) connections keep opening, duplicating
+        and replacing each other (see CMNAuth's deterministic-outbound
+        duplicate resolution), so the peer count keeps moving through
+        the target and the exact-equality waits never pass. Connect
+        without the count gates, then wait until at least the expected
+        number of handshaken peers is present on both sides and the
+        counts have stopped moving. The block/chainlock syncs that
+        follow verify the connection end to end.
+        """
+        from_connection = self.nodes[a]
+        to_connection = self.nodes[b]
+
+        def handshaken_peers(node):
+            return len([peer for peer in node.getpeerinfo() if peer["version"] != 0])
+
+        from_num_peers = handshaken_peers(from_connection) + 1
+        to_num_peers = handshaken_peers(to_connection) + 1
+        self.connect_nodes(a, b, wait_for_connect=False)
+
+        last_counts = None
+        stable_polls = 0
+
+        def counts_settled():
+            nonlocal last_counts, stable_polls
+            counts = (handshaken_peers(from_connection), handshaken_peers(to_connection))
+            if counts == last_counts and counts[0] >= from_num_peers and counts[1] >= to_num_peers:
+                stable_polls += 1
+            else:
+                stable_polls = 0
+            last_counts = counts
+            return stable_polls >= 2
+
+        self.wait_until(counts_settled)
+
+
     def add_options(self, parser):
         self.add_wallet_options(parser)
 
@@ -91,7 +133,7 @@ class LLMQChainLocksTest(DashTestFramework):
         for i in range(len(self.nodes)):
             force_finish_mnsync(self.nodes[i])
         for i in range(2, len(self.nodes)):
-            self.connect_nodes(i, 1)
+            self.connect_nodes_after_restart(i, 1)
         self.sync_all()
         cl = self.nodes[0].getbestblockhash()
         self.generate(self.nodes[0], 5)
