@@ -5726,9 +5726,6 @@ bool Chainstate::RollforwardBlock(const CBlockIndex* pindex, CCoinsViewCache& in
         CAssetsMap mapAssetIn;
         CAssetsMap mapAssetOut;
         if (!tx->IsCoinBase()) {
-            for (const CTxIn &txin : tx->vin) {
-                inputs.SpendCoin(txin.prevout);
-            }
             // SYSCOIN
             const uint256& txHash = tx->GetHash();
             // Native vault yield check (consensus) runs before CheckTxInputs so
@@ -5748,6 +5745,14 @@ bool Chainstate::RollforwardBlock(const CBlockIndex* pindex, CCoinsViewCache& in
                 return error("%s: Consensus::CheckSyscoinInputs: %s, %s", __func__, txHash.ToString(), tx_state.ToString());
             }
             vecTXIDPairs.emplace_back(txHash, pindex->nHeight);
+            // Spend the inputs only after the checks above have read them
+            // (same order as ConnectBlock: CheckTxInputs requires the coins
+            // to still be unspent, so spending first made every replay of a
+            // block containing a spend fail with bad-txns-inputs-missingorspent
+            // and the node could never restart after an interrupted flush).
+            for (const CTxIn &txin : tx->vin) {
+                inputs.SpendCoin(txin.prevout);
+            }
 
         }
         // Pass check = true as every addition may be an overwrite.
