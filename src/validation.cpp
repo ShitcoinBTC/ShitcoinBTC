@@ -5709,6 +5709,32 @@ bool Chainstate::RollforwardBlock(const CBlockIndex* pindex, CCoinsViewCache& in
         return error("ReplayBlock(): ReadBlockFromDisk failed at %d, hash=%s", pindex->nHeight, pindex->GetBlockHash().ToString());
     }
     // SYSCOIN
+    // An interrupted chainstate flush commits the coins delta in several
+    // batches (see CCoinsViewDB::BatchWrite): the batches that landed may
+    // already contain this block's spend erasures, so a prevout spent by
+    // this block can be missing from the view even though the block was
+    // fully validated when it was first connected. Restore any such
+    // prevout from the block's undo data (the same source DisconnectBlock
+    // trusts) so the input checks below observe the true pre-block state.
+    // Prevouts the view still holds are left untouched, and if no usable
+    // undo data exists the replay proceeds exactly as before.
+    {
+        CBlockUndo blockUndo;
+        if (m_blockman.UndoReadFromDisk(blockUndo, *pindex) && blockUndo.vtxundo.size() + 1 == block.vtx.size()) {
+            for (size_t i = 1; i < block.vtx.size(); ++i) {
+                const CTransaction& tx = *block.vtx[i];
+                const CTxUndo& txundo = blockUndo.vtxundo[i - 1];
+                if (txundo.vprevout.size() != tx.vin.size()) continue;
+                for (size_t j = 0; j < tx.vin.size(); ++j) {
+                    const COutPoint& prevout = tx.vin[j].prevout;
+                    if (!inputs.HaveCoin(prevout)) {
+                        inputs.AddCoin(prevout, Coin{txundo.vprevout[j]}, true);
+                    }
+                }
+            }
+        }
+    }
+    // SYSCOIN
     // MUST process special txes before updating UTXO to ensure consistency between mempool and block processing
     const bool ibd = m_chainman.IsInitialBlockDownload();
     CDeterministicMNListNEVMAddressDiff diff;
