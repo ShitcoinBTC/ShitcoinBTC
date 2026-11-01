@@ -86,6 +86,7 @@ const std::vector<std::string> RPC_COMMANDS_NOT_SAFE_FOR_FUZZING{
     "setban",                // avoid DNS lookups
     "stop",                  // avoid shutdown state
     "getnevmblockchaininfo",
+    "submitchainlock", // submits a ChainLock signature to the chain locks handler (state-changing)
 };
 
 // RPC commands which are safe for fuzzing.
@@ -111,6 +112,10 @@ const std::vector<std::string> RPC_COMMANDS_SAFE_FOR_FUZZING{
     "gobject_diff",
     "voteraw",
     "getchainlocks",
+    "getbestchainlock",
+    "gettxchainlocks",
+    "verifychainlock",
+    "getevodbstats",
     "bls_generate",
     "bls_fromsecret",
     "protx_list",
