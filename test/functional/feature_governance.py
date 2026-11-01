@@ -50,32 +50,57 @@ class SyscoinGovernanceTest (DashTestFramework):
     def check_superblock(self):
         # Make sure Superblock has only payments that fit into the budget
         # p0 must always be included because it has most votes
-        # p1 and p2 have equal number of votes (but less votes than p0)
-        # so only one of them can be included (depends on proposal hashes).
+        # p1 and p2 have equal number of votes (but less votes than p0),
+        # so the tied proposals are ranked by hash (larger hash first).
+        # A superblock candidate fills the budget in that order: the
+        # candidate may spend up to the current superblock limit plus the
+        # 10% "up" headroom that block validation allows
+        # (CSuperblock::SHIFT_UP, see CreateSuperblockCandidate and
+        # IsBlockValueValid). At the first superblock the limit is
+        # 2000000, so only the tied winner fits next to p0; once a nearly
+        # full superblock has raised the limit to 2200000, the headroom
+        # (2420000) also fits the tied loser. Which proposals are paid is
+        # deterministic in both cases and must match the greedy fill
+        # exactly -- in particular, if only one of p1/p2 is paid, it must
+        # be the one with the larger hash.
+        candidate_budget = self.budget * Decimal("1.1")
+        tied_proposals = sorted(
+            [(self.p1_hash, self.p1_amount, self.p1_payout_address),
+             (self.p2_hash, self.p2_amount, self.p2_payout_address)],
+            reverse=True)
+        expected_payments = []
+        allocated = Decimal("0")
+        for amount, address in [(self.p0_amount, self.p0_payout_address)] + \
+                [(amount, address) for _, amount, address in tied_proposals]:
+            if allocated + amount <= candidate_budget:
+                expected_payments.append((amount, address))
+                allocated += amount
+
         coinbase_outputs = self.nodes[0].getblock(self.nodes[0].getbestblockhash(), 2)["tx"][0]["vout"]
         payments_found = 0
         payment_value = 0
+        found_payments = []
         for txout in coinbase_outputs:
             if txout["value"] == self.p0_amount and txout["scriptPubKey"]["address"] == self.p0_payout_address:
-                payments_found += 1
-                payment_value += self.p0_amount
+                found_payments.append((self.p0_amount, self.p0_payout_address))
             if txout["value"] == self.p1_amount and txout["scriptPubKey"]["address"] == self.p1_payout_address:
-                if self.p1_hash > self.p2_hash:
-                    payments_found += 1
-                else:
-                    assert False
-                payment_value += self.p1_amount
+                found_payments.append((self.p1_amount, self.p1_payout_address))
             if txout["value"] == self.p2_amount and txout["scriptPubKey"]["address"] == self.p2_payout_address:
-                if self.p2_hash > self.p1_hash:
-                    payments_found += 1
-                else:
-                    assert False
-                payment_value += self.p2_amount
+                found_payments.append((self.p2_amount, self.p2_payout_address))
+        for amount, _ in found_payments:
+            payments_found += 1
+            payment_value += amount
+        # If exactly one of the tied proposals was paid, it must be the winner
+        paid_tied = [proposal_hash for proposal_hash, amount, address in tied_proposals
+                     if (amount, address) in found_payments]
+        if len(paid_tied) == 1:
+            assert_equal(paid_tied[0], max(self.p1_hash, self.p2_hash))
+        assert_equal(sorted(found_payments), sorted(expected_payments))
         if payment_value <= self.budget*Decimal("0.95"):
             self.budget = self.budget*Decimal("0.9")
         elif payment_value >= self.budget*Decimal("1.05"):
             self.budget = self.budget*Decimal("1.1")
-        assert_equal(payments_found, 2)
+        assert_equal(payments_found, len(expected_payments))
 
     def have_trigger_for_height(self, sb_block_height):
         count = 0
