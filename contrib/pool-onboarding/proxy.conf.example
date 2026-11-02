@@ -20,6 +20,35 @@ NODE_COOKIE=/home/shitcoin/.syscoin/.cookie
 # NODE_RPC_USER=shitcoinrpc
 # NODE_RPC_PASS=your-rpc-password
 
+# --- Optional SECOND submit endpoint (freeze v2.3, comparative report R3) ---
+# A second, INDEPENDENT syscoind (e.g. a house/seed node, or a second
+# local daemon) that found blocks are ALSO submitted to when the
+# primary NODE_RPC_URL daemon does not reach confirmed acceptance:
+# first confirmed acceptance on either daemon wins, and the spool
+# entry is removed only then. Leave EMPTY (the default) for the
+# pre-v2.3 single-daemon behaviour -- nothing changes.
+# A primary reply that is a real BIP22 reject reason (e.g. bad-prevblk)
+# is a deterministic verdict on the payload itself and is NOT sprayed
+# at the secondary; timeouts, inconclusive/duplicate results and RPC
+# errors do fall through to it.
+# Auth: SUBMIT_FALLBACK_RPC_USER/PASS when set, otherwise the primary
+# NODE_RPC_USER/PASS, otherwise the NODE_COOKIE file.
+#SUBMIT_FALLBACK_RPC_URL=http://127.0.0.1:18370/
+#SUBMIT_FALLBACK_RPC_USER=
+#SUBMIT_FALLBACK_RPC_PASS=
+#
+# Submission outcomes follow INTERFACE-CONTRACT v1.0 (freeze v2.3):
+# a bare null/empty submitblock reply is "unconfirmed", NOT
+# acceptance -- the spool entry is removed only when
+# getblockhash(height) confirms the block on a daemon's active
+# chain, so a daemon that claims success for a block that never
+# connected cannot destroy the spool evidence. A BIP22 validation
+# verdict (e.g. bad-auxpow-tag) is never retried: exactly one
+# submission carries it. Ambiguous / transient / unconfirmed
+# outcomes log a WARN at once and fire the full ALARM only at
+# ~90 seconds if still unresolved; the fallback leg above always
+# runs before any alarm.
+
 # --- NEVM template source ---
 # Your local sysgeth's ZMQ endpoint (it builds the NEVM block templates every
 # ShitcoinBtc block must commit to). Same box as sysgeth in the setup guide.

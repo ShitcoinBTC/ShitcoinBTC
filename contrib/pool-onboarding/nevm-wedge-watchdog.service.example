@@ -1,0 +1,15 @@
+[Unit]
+Description=ShitcoinBtc NEVM wedge watchdog (detection + alarm only)
+After=network.target syscoind.service
+Wants=syscoind.service
+
+[Service]
+Type=simple
+User=shitcoin
+Group=shitcoin
+ExecStart=/usr/bin/python3 /opt/shitcoin-stratum-proxy/nevm-wedge-watchdog.py --log /home/shitcoin/.syscoin/debug.log --threshold 3 --alarm-file /var/lib/shitcoin-stratum-proxy/spool/ALARM_NEVM_WEDGE.txt
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target

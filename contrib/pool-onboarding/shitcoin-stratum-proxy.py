@@ -55,6 +55,22 @@ Submission safety (fix-push 2026-10-26, fix-round 2026-10-26):
     they count as acceptance ONLY after an on-chain confirmation
     (getblockhash(height) == the block's hash). Unconfirmed entries
     stay spooled and keep replaying.
+  * Freeze v2.3 (comparative report R3): an OPTIONAL second submit
+    endpoint, SUBMIT_FALLBACK_RPC_URL (empty by default = exactly the
+    pre-v2.3 single-daemon behaviour). When set and the primary
+    sequence ends without confirmed acceptance, the SAME blockhex is
+    submitted to the secondary daemon (e.g. a house/seed node) with
+    the same bounded retry, and acceptance on EITHER daemon -- outright,
+    or an ambiguous result confirmed on-chain against whichever daemon
+    can answer -- ends the sequence as accepted. The one exception:
+    a DETERMINISTIC rejection from the primary (a real BIP22 reject
+    reason string, e.g. "bad-prevblk" -- see
+    is_deterministic_submit_reject()) is NOT sprayed at the
+    secondary: the payload itself is invalid, so a second daemon
+    applying the same consensus rules would reject it too, and
+    spraying it only muddies the secondary's logs. Inconclusive /
+    duplicate / timeout / transport / RPC-error outcomes carry no
+    such proof and DO fall through to the secondary.
   * A submission that still fails after all retries fires a loud ALARM:
     an ALARM log/stderr line, an ALARM.txt file in the spool directory,
     and the optional ALARM_CMD hook. Alarm discipline is per-entry:
@@ -92,6 +108,13 @@ DEFAULTS = {
     "LISTEN_PORT": "3333",
     "PAYOUT_ADDRESS": "",
     "NODE_RPC_URL": "http://127.0.0.1:8370/",
+    # Freeze v2.3 (R3): optional SECOND submit endpoint. Empty (the
+    # default) = single-daemon behaviour, byte-for-byte as before.
+    # Auth for the fallback: SUBMIT_FALLBACK_RPC_USER/PASS when set,
+    # otherwise the primary NODE_COOKIE / NODE_RPC_* credentials.
+    "SUBMIT_FALLBACK_RPC_URL": "",
+    "SUBMIT_FALLBACK_RPC_USER": "",
+    "SUBMIT_FALLBACK_RPC_PASS": "",
     "NODE_COOKIE": "/home/shitcoin/.syscoin/.cookie",
     "NODE_RPC_USER": "",
     "NODE_RPC_PASS": "",
@@ -161,7 +184,8 @@ ACCEPTED_SUBMIT_RESULTS = (None, "")
 # only proves the daemon has SEEN the block, possibly on a losing
 # branch). They count as acceptance ONLY after the on-chain
 # confirmation in _confirm_on_chain() (attacker B4).
-AMBIGUOUS_SUBMIT_RESULTS = ("inconclusive", "duplicate")
+AMBIGUOUS_SUBMIT_RESULTS = ("inconclusive", "duplicate",
+                            "duplicate-inconclusive")
 
 # Alarm discipline (attacker B3): ALARM_CMD fires at most once per
 # spool entry; re-alarm only after this escalation interval.
@@ -188,6 +212,90 @@ def is_submit_accepted(res):
 def is_submit_ambiguous(res):
     """True for results that need an on-chain confirmation (B4)."""
     return res in AMBIGUOUS_SUBMIT_RESULTS
+
+
+def is_deterministic_submit_reject(res):
+    """Freeze v2.3 (R3): True only for a DETERMINISTIC rejection --
+    a real BIP22 reject-reason string from submitblock (any string
+    result that is neither an outright acceptance nor one of the
+    AMBIGUOUS results, e.g. "bad-prevblk", "duplicate-invalid",
+    "high-hash"). Such a result is the daemon's reasoned verdict on
+    the payload itself: the same payload is invalid under the same
+    consensus rules on any daemon, so it must NOT be sprayed at a
+    secondary submit endpoint. Everything else is NOT deterministic:
+    accepted/ambiguous strings, exceptions (timeout, transport, or
+    an RPC error reply such as -8 raised by call() -- a second
+    daemon's template cache may well know the block), and any
+    non-string payload."""
+    return isinstance(res, str) and bool(res) \
+        and not is_submit_accepted(res) and not is_submit_ambiguous(res)
+
+
+# --- INTERFACE-CONTRACT v1.0 compliance (freeze v2.3, seat-10 fixes) --
+# NEVM *transport* reasons (contract section 4): the daemon could not
+# judge the block; these map to outcome "unavailable", never "invalid".
+NEVM_TRANSPORT_REASONS = ("nevm-response-not-found",
+                          "nevm-connect-not-sent",
+                          "nevm-not-connected",
+                          "nevm-header-not-sent")
+# BIP22 / validation verdict reasons that are not "bad-*" shaped.
+_BIP22_INVALID_EXACT = ("high-hash", "duplicate-invalid",
+                        "missing-auxpow", "no-auxpow")
+
+
+def is_bip22_invalid(res):
+    """Contract section 4 mapping, outcome "invalid" (S10-D3/D5):
+    True only for a submitblock result string that IS a consensus /
+    validation verdict on this payload -- a "bad-*" BIP22 reason, one
+    of _BIP22_INVALID_EXACT, or a NEVM *verdict* reason ("nevm-*"
+    except the NEVM_TRANSPORT_REASONS, which are "unavailable").
+    Such a verdict is terminal: never-retry (contract row 6) -- the
+    submit sequence breaks on the FIRST such answer, so a verdict can
+    never be followed by (or poisoned by) a later timeout (S10-D5).
+    Any other string (synthetic harness strings, prose, stale /
+    prevhash class answers such as "inconclusive-not-best-prevblk")
+    is NOT a mapped invalid verdict here."""
+    if not isinstance(res, str) or not res:
+        return False
+    if res in NEVM_TRANSPORT_REASONS:
+        return False
+    if res in ("bad-prevblk", "prev-blk-not-found"):
+        # Contract section 4: the prevhash class maps to
+        # "stale-prevhash" (retryable-then-terminal), NOT "invalid"
+        # -- it is not a verdict on this payload's own validity.
+        return False
+    if res.startswith("bad-") or res in _BIP22_INVALID_EXACT:
+        return True
+    if res.startswith("nevm-"):
+        return True
+    return False
+
+
+# Contract C7: ambiguous / transient / unconfirmed outcomes WARN
+# immediately and ALARM only at ~90 s if still unresolved. Terminal
+# outcomes (invalid, malformed, provably buried) alarm immediately.
+ALARM_DELAY_SECS = 90.0
+
+
+def _confirm_on_chain_any(backends, blockhex, height):
+    """On-chain confirmation with ANY-TRUE semantics (S10-D6, mirror
+    of the adapter's _block_on_chain): a True from ANY backend wins
+    -- a block either daemon can verify on its active chain IS
+    confirmed. False is returned only when every backend that could
+    answer said False (a different hash at the height); None when no
+    backend could answer (fail-closed: unconfirmed). The pre-fix
+    first-answer-wins form let one daemon's False shadow the other
+    daemon's True for a block the second daemon had just accepted."""
+    saw_false = False
+    for backend in backends:
+        if backend is None:
+            continue
+        confirmed = _confirm_on_chain(backend, blockhex, height)
+        if confirmed is True:
+            return True
+        if confirmed is False:
+            saw_false = True
+    return False if saw_false else None
 
 
 def block_hash_hex(blockhex):
@@ -323,7 +431,8 @@ class BlockSpool:
 
     def discard(self, blockhex, height):
         """Remove a spooled block. Call ONLY after confirmed acceptance.
-        Also rotates ALARM.txt away when it names this entry (B3)."""
+        Also removes this entry's line from the ALARM.txt pending
+        list (B3, per-entry since the C2-D1 fix)."""
         try:
             path = self._path_for(blockhex, height)
         except Exception:
@@ -336,11 +445,13 @@ class BlockSpool:
         self._rotate_alarm_for(height, blockhex)
 
     def _rotate_alarm_for(self, height, blockhex=None):
+        """Remove THIS entry's line from the ALARM.txt pending list
+        (C4 fix, C2-D1). When other failures are still pending their
+        lines stay; only when the last pending line is removed is the
+        file rotated to ALARM.txt.resolved, as before."""
         alarm_path = os.path.join(self.dir, "ALARM.txt")
-        try:
-            with open(alarm_path) as f:
-                content = f.read()
-        except OSError:
+        lines = _alarm_file_read(self.dir)
+        if not lines:
             return
         markers = ["height=%s " % (height,)]
         if blockhex:
@@ -348,8 +459,19 @@ class BlockSpool:
                 markers.append(block_hash_hex(blockhex))
             except Exception:
                 pass
-        if not any(m in content for m in markers):
-            return  # the alarm on file is for a different entry: keep it
+        remaining = [ln for ln in lines
+                     if not any(m in ln for m in markers)]
+        if len(remaining) == len(lines):
+            return  # the alarms on file are for other entries: keep them
+        if remaining:
+            try:
+                _alarm_file_write(self.dir, remaining)
+                log("spool: ALARM.txt entry removed (height=%s confirmed "
+                    "accepted); %d failure(s) still pending"
+                    % (height, len(remaining)))
+            except OSError as e:
+                log("spool: could not update ALARM.txt: %r" % e)
+            return
         try:
             os.replace(alarm_path, alarm_path + ".resolved")
             self._fsync_dir()
@@ -475,6 +597,67 @@ class BlockSpool:
             return 0
 
 
+def _alarm_line_key(line):
+    """Identity of one ALARM.txt pending line: its block hash when the
+    line carries one, else its height. None for unrecognised lines
+    (such lines are never dropped by upsert/rotate)."""
+    idx = line.find("hash=")
+    if idx >= 0:
+        rest = line[idx + 5:].split()
+        if rest and rest[0] != "-":
+            return ("hash", rest[0])
+    idx = line.find("height=")
+    if idx >= 0:
+        rest = line[idx + 7:].split()
+        if rest:
+            return ("height", rest[0])
+    return None
+
+
+def _alarm_file_read(spool_dir):
+    try:
+        with open(os.path.join(spool_dir, "ALARM.txt")) as f:
+            return [ln.rstrip("\n") for ln in f if ln.strip()]
+    except OSError:
+        return []
+
+
+def _alarm_file_write(spool_dir, lines):
+    """Atomically replace ALARM.txt with `lines` (tmp + fsync +
+    os.replace + dir fsync, the same discipline as the spool)."""
+    path = os.path.join(spool_dir, "ALARM.txt")
+    tmp = path + ".tmp"
+    with open(tmp, "w") as f:
+        f.write("\n".join(lines) + "\n")
+        f.flush()
+        os.fsync(f.fileno())
+    os.replace(tmp, path)
+    try:
+        dfd = os.open(spool_dir, os.O_RDONLY)
+        try:
+            os.fsync(dfd)
+        finally:
+            os.close(dfd)
+    except OSError:
+        pass
+
+
+def _alarm_file_upsert(spool_dir, height, block_hash, msg):
+    """C4 fix (C2-D1): ALARM.txt is a PENDING LIST, one line per failed
+    block, mirroring the adapter's marker design. The old code opened
+    the file with mode "w", so a second failure silently erased the
+    first failure's only file record, and _rotate_alarm_for could then
+    rotate the file away when the second block landed. Upsert by block
+    hash (falling back to height): re-alarming the same block refreshes
+    its own line; other blocks' lines are untouched."""
+    key = ("hash", block_hash) if block_hash else ("height", str(height))
+    lines = [ln for ln in _alarm_file_read(spool_dir)
+             if _alarm_line_key(ln) != key]
+    lines.append("[%s] ALARM %s" %
+                 (time.strftime("%Y-%m-%d %H:%M:%S"), msg))
+    _alarm_file_write(spool_dir, lines)
+
+
 def fire_submission_alarm(height, detail, spool_dir="", alarm_cmd="",
                           block_hash=None):
     """Loud, unmissable signal that a found block could not be submitted.
@@ -493,9 +676,7 @@ def fire_submission_alarm(height, detail, spool_dir="", alarm_cmd="",
     if spool_dir:
         try:
             os.makedirs(spool_dir, exist_ok=True)
-            with open(os.path.join(spool_dir, "ALARM.txt"), "w") as f:
-                f.write("[%s] ALARM %s\n" %
-                        (time.strftime("%Y-%m-%d %H:%M:%S"), msg))
+            _alarm_file_upsert(spool_dir, height, block_hash, msg)
         except Exception as e:
             log("ALARM: could not write alarm file: %r" % e)
     if alarm_cmd:
@@ -563,54 +744,33 @@ def _fire_alarm_disciplined(spool, blockhex, height, detail, alarm_cmd):
     return True
 
 
-def submit_spooled_block(backend, blockhex, height, spool=None, retries=3,
-                         backoff_secs=2.0, refresh_fn=None, alarm_cmd="",
-                         sleep_fn=time.sleep, probe_fn=None):
-    """Submit one block with spool-first + same-payload retry semantics.
+def _submit_sequence(backend, blockhex, height, spool, retries,
+                     backoff_secs, probe_fn, sleep_fn, confirm_backends,
+                     label):
+    """One bounded same-payload submit sequence against ONE daemon
+    (freeze v2.3 refactor of the pre-v2.3 submit_spooled_block loop).
+    Returns (accepted, last, probed, deterministic, outcome) where
+    outcome is the INTERFACE-CONTRACT section 2 vocabulary for the
+    sequence's terminal state and deterministic is True ONLY when
+    the terminal outcome is a mapped "invalid" verdict
+    (is_bip22_invalid) -- per-attempt state, never sticky (S10-D5):
+    the sequence BREAKS on the first invalid verdict (contract C3,
+    never-retry), so no later timeout can be poisoned by it and no
+    verdict is ever retried. On CONFIRMED acceptance the spool
+    entry is discarded here.
 
-    Returns (accepted, detail, probed):
-      accepted -- True only on daemon-confirmed acceptance: an outright
-                  acceptance (null/empty result), or an ambiguous
-                  "inconclusive"/"duplicate" result CONFIRMED on-chain
-                  via getblockhash(height) == block hash (B4).
-      detail   -- the daemon result on success, else the last
-                  rejection string / exception.
-      probed   -- True if the cheap probe ran between attempts.
-    The block is written to the spool BEFORE the first attempt and is
-    removed from the spool only on confirmed acceptance. A spool write
-    failure logs ERROR + raises the alarm and the submission proceeds
-    anyway (B1, mirroring the yiimp adapter). Retries resubmit the
-    SAME blockhex: between attempts only probe_fn (a cheap
-    getblockcount-class probe) runs -- miner jobs are NEVER rebuilt
-    here (B3/Angle-2 churn) -- and the retry aborts immediately when
-    the tip has moved to/past the block's height, since such a block
-    can never land. refresh_fn is accepted for backward compatibility
-    and used ONLY as the probe hook when probe_fn is not given; it is
-    never a job rebuild. After the bounded retries are exhausted the
-    submission alarm fires (per-entry discipline, B3) and the entry
-    stays spooled."""
-    if probe_fn is None and refresh_fn is not None:
-        probe_fn = refresh_fn
-    spool_alarm_fired = False
-    if spool is not None:
-        try:
-            spool.store(blockhex, height)
-        except Exception as e:
-            # B1: a spool failure must NOT block the submission itself.
-            log("ERROR: spool write failed height=%d: %r -- "
-                "submitting anyway" % (height, e))
-            bhash = None
-            try:
-                bhash = block_hash_hex(blockhex)
-            except Exception:
-                pass
-            fire_submission_alarm(
-                height, "spool write failed: %r (submitting anyway)" % (e,),
-                spool_dir=spool.dir, alarm_cmd=alarm_cmd, block_hash=bhash)
-            spool_alarm_fired = True
+    Contract C2 (S10-D2): a bare success-shaped reply (null / "")
+    is outcome "unconfirmed", NOT acceptance -- acceptance requires
+    the visibility check getblockhash(height) == block hash against
+    confirm_backends (any-True). Only a visibility-confirmed block
+    discards the spool; an unconfirmed success keeps the entry and
+    ends the sequence (replay cadence governs resubmission, contract
+    row 9 -- no hot loop)."""
     attempts = 1 + max(0, int(retries))
     last = None
     probed = False
+    deterministic = False
+    outcome = "unavailable"
     for attempt in range(1, attempts + 1):
         if attempt > 1:
             tip = None
@@ -639,27 +799,55 @@ def submit_spooled_block(backend, blockhex, height, spool=None, retries=3,
             res = backend.submit_block(blockhex)
         except Exception as e:
             last = e
+            outcome = "unavailable"
+            deterministic = False
             log("submitblock attempt %d/%d height=%d FAILED: %r%s" %
                 (attempt, attempts, height, e,
                  " (stale template / unknown block hash)"
                  if _looks_like_stale_template(e) else ""))
             continue
         if is_submit_accepted(res):
-            log("submitblock height=%d -> %r (ACCEPTED, attempt %d/%d)"
-                % (height, res, attempt, attempts))
-            if spool is not None:
-                spool.discard(blockhex, height)
-            return True, res, probed
+            # Contract C2: bare null/"" is UNCONFIRMED until visible.
+            confirmed = _confirm_on_chain_any(
+                confirm_backends, blockhex, height)
+            if confirmed is True:
+                log("submitblock height=%d -> %r (ACCEPTED, attempt "
+                    "%d/%d%s; success-shaped reply CONFIRMED on-chain "
+                    "via getblockhash)" %
+                    (height, res, attempt, attempts,
+                     ", via " + label if label else ""))
+                if spool is not None:
+                    spool.discard(blockhex, height)
+                return True, res, probed, False, "accepted"
+            last = res
+            outcome = "unconfirmed"
+            deterministic = False
+            log("*** WARN *** submitblock height=%d -> %r "
+                "(success-shaped reply NOT confirmed on-chain: "
+                "getblockhash check %s -- outcome=unconfirmed; spool "
+                "entry KEPT, no credit; replay/visibility governs, "
+                "attempt %d/%d%s)" %
+                (height, res,
+                 "reports a DIFFERENT hash at this height"
+                 if confirmed is False else "unavailable",
+                 attempt, attempts,
+                 ", via " + label if label else ""))
+            break
         if is_submit_ambiguous(res):
-            confirmed = _confirm_on_chain(backend, blockhex, height)
+            confirmed = _confirm_on_chain_any(
+                confirm_backends, blockhex, height)
             if confirmed:
                 log("submitblock height=%d -> %r (AMBIGUOUS result "
                     "CONFIRMED on-chain via getblockhash, attempt %d/%d)"
                     % (height, res, attempt, attempts))
                 if spool is not None:
                     spool.discard(blockhex, height)
-                return True, res, probed
+                return True, res, probed, False, \
+                    ("duplicate" if res == "duplicate" else "accepted")
             last = res
+            outcome = "inconclusive" if res != "duplicate" \
+                else "unconfirmed"
+            deterministic = False
             log("submitblock attempt %d/%d height=%d AMBIGUOUS %r NOT "
                 "confirmed on-chain (getblockhash check: %s) -- entry "
                 "kept, retrying the same payload" %
@@ -668,10 +856,246 @@ def submit_spooled_block(backend, blockhex, height, spool=None, retries=3,
                  else "check unavailable"))
             continue
         last = res
-        log("submitblock attempt %d/%d height=%d REJECTED: %r%s" %
+        if is_bip22_invalid(res):
+            # Contract C3: a mapped invalid verdict is NEVER retried.
+            deterministic = True
+            outcome = "invalid"
+            log("submitblock attempt %d/%d height=%d REJECTED: %r "
+                "(outcome=invalid, deterministic verdict -- "
+                "never-retry; sequence ends here)" %
+                (attempt, attempts, height, res))
+            break
+        if res in NEVM_TRANSPORT_REASONS:
+            outcome = "unavailable"
+        elif res in ("inconclusive-not-best-prevblk", "bad-prevblk",
+                     "prev-blk-not-found"):
+            # Stale-prevhash class (contract section 4 / row 4):
+            # bounded same-payload retry while the height is open;
+            # the fallback gate in submit_spooled_block treats an
+            # exhausted stale-prevhash sequence as no-spray (the
+            # seat-10 R3-B2 design point), without calling it a
+            # payload verdict.
+            outcome = "stale-prevhash"
+        else:
+            # Unmapped non-empty string: not a section-4 verdict we
+            # can name; bounded same-payload retry applies (legacy
+            # behaviour for synthetic/unknown strings) and the
+            # outcome stays non-terminal for alarm purposes.
+            outcome = "unavailable"
+        deterministic = False
+        log("submitblock attempt %d/%d height=%d REJECTED: %r%s "
+            "(outcome=%s)" %
             (attempt, attempts, height, res,
              " (stale template?)" if _looks_like_stale_template(res)
-             else ""))
+             else "", outcome))
+    return False, last, probed, deterministic, outcome
+
+
+def _spool_entry_age_secs(spool, blockhex, height):
+    """Age of the spool entry for this block (now - stored_at), or
+    None when there is no readable entry. C7's 90 s window is measured
+    from the solve (the entry's stored_at), not from the latest
+    attempt -- a replayed entry that is already past the window
+    alarms immediately on its next unresolved pass."""
+    if spool is None:
+        return None
+    try:
+        path = spool._path_for(blockhex, height)
+        if not os.path.exists(path):
+            return None
+        entry = spool._read_entry_file(path)
+        stored_at = entry.get("stored_at")
+        if isinstance(stored_at, bool) \
+                or not isinstance(stored_at, (int, float)):
+            return None
+        return max(0.0, time.time() - float(stored_at))
+    except Exception:
+        return None
+
+
+def _deferred_alarm_check(spool, blockhex, height, detail, alarm_cmd,
+                          backends):
+    """Timer callback for the C7 window: at ~90 s after the solve,
+    if the entry is STILL spooled and no backend can confirm the
+    block on-chain, fire the (disciplined) submission ALARM. If the
+    block has become visible meanwhile, resolve the entry instead."""
+    try:
+        path = spool._path_for(blockhex, height)
+        if not os.path.exists(path):
+            return  # resolved/discarded since the WARN: no alarm
+        if _confirm_on_chain_any(backends, blockhex, height) is True:
+            log("spool: deferred alarm check height=%d: block is now "
+                "CONFIRMED on-chain -- discarding entry, no alarm" %
+                height)
+            spool.discard(blockhex, height)
+            return
+        _fire_alarm_disciplined(spool, blockhex, height, detail,
+                                alarm_cmd)
+    except Exception as e:
+        log("deferred alarm check height=%s failed: %r" % (height, e))
+
+
+def _warn_or_alarm(spool, blockhex, height, detail, alarm_cmd, outcome,
+                   backends, alarm_delay_secs):
+    """Contract C7 disposition for an unresolved submission.
+
+    Terminal outcome ("invalid") -> ALARM immediately. Ambiguous /
+    transient / unconfirmed outcomes -> WARN immediately (log +
+    persisted warn state on the entry) and ALARM at ~90 s if still
+    unresolved: immediately when the entry is already past the
+    window (replay of an old entry), otherwise via a daemon timer
+    that re-checks visibility first (the spool replay loop is the
+    backstop if the process restarts). With no spool there is no
+    replay set to protect, so the alarm fires immediately."""
+    if outcome == "invalid" or spool is None:
+        _fire_alarm_disciplined(spool, blockhex, height, detail,
+                                alarm_cmd)
+        return "alarmed"
+    age = _spool_entry_age_secs(spool, blockhex, height)
+    log("*** WARN *** SUBMISSION UNRESOLVED height=%s outcome=%s "
+        "detail=%r -- found block is retained in the spool; ALARM "
+        "fires at ~%ds after the solve if still unresolved "
+        "(contract C7; fallback leg already ran where configured)" %
+        (height, outcome, detail, int(alarm_delay_secs)))
+    if age is not None and age >= alarm_delay_secs:
+        _fire_alarm_disciplined(spool, blockhex, height, detail,
+                                alarm_cmd)
+        return "alarmed"
+    try:
+        path = spool._path_for(blockhex, height)
+        if os.path.exists(path):
+            spool.update_entry(path, warned_at=time.time(),
+                               warn_outcome=outcome,
+                               alarm_due_at=time.time()
+                               + (alarm_delay_secs - (age or 0.0)))
+    except Exception as e:
+        log("warn: could not persist warn state height=%s: %r" %
+            (height, e))
+    timer = threading.Timer(
+        max(0.0, alarm_delay_secs - (age or 0.0)),
+        _deferred_alarm_check,
+        args=(spool, blockhex, height, detail, alarm_cmd, backends))
+    timer.daemon = True
+    timer.start()
+    return "warned"
+
+
+def submit_spooled_block(backend, blockhex, height, spool=None, retries=3,
+                         backoff_secs=2.0, refresh_fn=None, alarm_cmd="",
+                         sleep_fn=time.sleep, probe_fn=None,
+                         fallback_backend=None,
+                         alarm_delay_secs=ALARM_DELAY_SECS):
+    """Submit one block with spool-first + same-payload retry semantics.
+
+    Returns (accepted, detail, probed):
+      accepted -- True only on CONFIRMED acceptance: a success-shaped
+                  or ambiguous result CONFIRMED on-chain via
+                  getblockhash(height) == block hash (B4 + contract
+                  C2: a bare null/"" reply alone is "unconfirmed",
+                  never acceptance, and never discards the spool).
+      detail   -- the daemon result on success, else the last
+                  rejection string / exception.
+      probed   -- True if the cheap probe ran between attempts.
+    The block is written to the spool BEFORE the first attempt and is
+    removed from the spool only on confirmed acceptance. A spool write
+    failure logs ERROR + raises the alarm and the submission proceeds
+    anyway (B1, mirroring the yiimp adapter). Retries resubmit the
+    SAME blockhex: between attempts only probe_fn (a cheap
+    getblockcount-class probe) runs -- miner jobs are NEVER rebuilt
+    here (B3/Angle-2 churn) -- and the retry aborts immediately when
+    the tip has moved to/past the block's height, since such a block
+    can never land. refresh_fn is accepted for backward compatibility
+    and used ONLY as the probe hook when probe_fn is not given; it is
+    never a job rebuild. After the bounded retries are exhausted the
+    submission alarm fires (per-entry discipline, B3) and the entry
+    stays spooled.
+
+    Freeze v2.3 (R3): when fallback_backend is given (main() builds
+    it from SUBMIT_FALLBACK_RPC_URL; empty default = None = exactly
+    the pre-v2.3 behaviour) and the PRIMARY sequence ends without
+    confirmed acceptance, the same blockhex is submitted to the
+    secondary daemon with the same bounded sequence; the first
+    confirmed acceptance on either daemon wins and only then is the
+    spool entry discarded. Ambiguous-result confirmation consults
+    both daemons (whichever can answer). The exception is a
+    DETERMINISTIC primary rejection (a real BIP22 reject reason --
+    is_deterministic_submit_reject): the payload is invalid under
+    the shared consensus rules, so it is NOT sprayed at the
+    secondary; the sequence ends in the normal spool + alarm path."""
+    if probe_fn is None and refresh_fn is not None:
+        probe_fn = refresh_fn
+    spool_alarm_fired = False
+    if spool is not None:
+        try:
+            spool.store(blockhex, height)
+        except Exception as e:
+            # B1: a spool failure must NOT block the submission itself.
+            log("ERROR: spool write failed height=%d: %r -- "
+                "submitting anyway" % (height, e))
+            bhash = None
+            try:
+                bhash = block_hash_hex(blockhex)
+            except Exception:
+                pass
+            fire_submission_alarm(
+                height, "spool write failed: %r (submitting anyway)" % (e,),
+                spool_dir=spool.dir, alarm_cmd=alarm_cmd, block_hash=bhash)
+            spool_alarm_fired = True
+    confirm_backends = [backend]
+    if fallback_backend is not None and fallback_backend is not backend:
+        confirm_backends.append(fallback_backend)
+    accepted, last, probed, deterministic, outcome = _submit_sequence(
+        backend, blockhex, height, spool, retries, backoff_secs,
+        probe_fn, sleep_fn, confirm_backends, label="")
+    if accepted:
+        # S10-D1 root fix: the interim v2.3 refactor lost this early
+        # return -- a primary-accepted block fell through to the
+        # alarm path and the caller was told accepted=False.
+        return True, last, probed
+    if fallback_backend is not None and fallback_backend is not backend:
+        if outcome == "invalid":
+            log("submitblock height=%d: primary returned a "
+                "DETERMINISTIC verdict %r (outcome=invalid) -- not "
+                "spraying the same payload at the secondary submit "
+                "endpoint (it is invalid under the shared consensus "
+                "rules; contract never-retry)" % (height, last))
+        elif outcome == "stale-prevhash":
+            log("submitblock height=%d: primary sequence ended "
+                "stale-prevhash %r after bounded retries -- not "
+                "spraying at the secondary (seat-10 R3-B2 design "
+                "point); entry stays spooled for replay" %
+                (height, last))
+        else:
+            # The block may already be on-chain in the secondary's
+            # view (e.g. the primary accepted it network-wide but its
+            # own reply/check path wedged): confirm before resending.
+            confirmed = _confirm_on_chain_any(
+                [fallback_backend, backend], blockhex, height)
+            if confirmed:
+                log("submitblock height=%d CONFIRMED on-chain via "
+                    "the secondary daemon's getblockhash -- accepted "
+                    "without a secondary submission" % height)
+                if spool is not None:
+                    spool.discard(blockhex, height)
+                return True, last, probed
+            log("submitblock height=%d: primary sequence ended "
+                "without confirmed acceptance (last=%r, outcome=%s) "
+                "-- submitting the SAME payload to the secondary "
+                "daemon (R3)" % (height, last, outcome))
+            fb_accepted, fb_last, fb_probed, _fb_det, fb_outcome = \
+                _submit_sequence(
+                    fallback_backend, blockhex, height, spool, retries,
+                    backoff_secs, None, sleep_fn, confirm_backends,
+                    label="secondary daemon")
+            probed = probed or fb_probed
+            if fb_accepted:
+                log("submission outcome=accepted via=secondary "
+                    "height=%d detail=%r -- first confirmed acceptance "
+                    "wins (R3); spool entry discarded" %
+                    (height, fb_last))
+                return True, fb_last, probed
+            last = fb_last
+            outcome = fb_outcome
     if spool_alarm_fired:
         # The spool-write alarm already fired in this call; do not page
         # twice for the same find. The failure itself is still loud.
@@ -680,9 +1104,13 @@ def submit_spooled_block(backend, blockhex, height, spool=None, retries=3,
             "call; block was NOT spooled and NOT accepted" %
             (height, last))
     else:
-        _fire_alarm_disciplined(spool, blockhex, height, last, alarm_cmd)
+        # Contract C7: WARN now / ALARM at ~90 s for ambiguous,
+        # transient and unconfirmed outcomes; ALARM immediately for
+        # a terminal invalid verdict. The fallback leg (above) has
+        # already run before either stage.
+        _warn_or_alarm(spool, blockhex, height, last, alarm_cmd,
+                       outcome, confirm_backends, alarm_delay_secs)
     return False, last, probed
-
 
 def _replay_one(backend, spool, entry, submit_kwargs):
     """Replay a single validated spool entry. Returns 1 when the entry
@@ -693,7 +1121,11 @@ def _replay_one(backend, spool, entry, submit_kwargs):
     path = entry.get("_path")
     # Already on-chain? Resolves the lost-ack case without a resubmit:
     # the block IS the chain block at its height, so it is confirmed.
-    confirmed = _confirm_on_chain(backend, blockhex, height)
+    # Any-True across the primary and (when configured) the fallback
+    # backend's chain views (S10-D6 semantics on the replay path too).
+    confirmed = _confirm_on_chain_any(
+        [backend, submit_kwargs.get("fallback_backend")],
+        blockhex, height)
     if confirmed:
         log("spool replay: height=%d already on chain (getblockhash "
             "match) -- confirmed; discarding spool entry" % height)
@@ -1253,7 +1685,8 @@ def build_block(job, parent_coinbase, parent_header):
 
 def assemble_and_submit(backend, job, parent_coinbase, parent_header,
                         spool=None, submit_retries=3, backoff_secs=2.0,
-                        refresh_fn=None, alarm_cmd="", probe_fn=None):
+                        refresh_fn=None, alarm_cmd="", probe_fn=None,
+                        fallback_backend=None):
     """Assemble, spool, and submit a winning share's block.
 
     Returns (accepted, detail, refreshed) from submit_spooled_block:
@@ -1266,7 +1699,8 @@ def assemble_and_submit(backend, job, parent_coinbase, parent_header,
                                 spool=spool, retries=submit_retries,
                                 backoff_secs=backoff_secs,
                                 refresh_fn=refresh_fn, alarm_cmd=alarm_cmd,
-                                probe_fn=probe_fn)
+                                probe_fn=probe_fn,
+                                fallback_backend=fallback_backend)
 
 
 class JobManager:
@@ -1308,6 +1742,18 @@ class JobManager:
     def add_listener(self, fn):
         with self.lock:
             self.listeners.append(fn)
+
+    def remove_listener(self, fn):
+        """C4 fix (C1-D5): handlers must unregister on disconnect --
+        previously every connection ever made stayed in the list for
+        the life of the process and every broadcast iterated all of
+        them (their send() swallowed the failure, so the leak was
+        silent and unbounded)."""
+        with self.lock:
+            try:
+                self.listeners.remove(fn)
+            except ValueError:
+                pass
 
     def current(self):
         with self.lock:
@@ -1360,13 +1806,21 @@ class JobManager:
                     self.last_tip = tip
                 if tip != self.last_tip:
                     log("new tip %d (was %s): rebuilding job" % (tip, self.last_tip))
-                    self.last_tip = tip
+                    # C4 fix (C1-D2): last_tip is assigned ONLY after the
+                    # rebuild succeeds. The old code assigned it first, so
+                    # one transient build failure (e.g. a NEVM/ZMQ hiccup)
+                    # permanently suppressed the tip branch: every later
+                    # poll saw tip == last_tip and miners kept grinding
+                    # the stale job until the refresh timer or the NEXT
+                    # tip change. Now a failed rebuild is retried on the
+                    # next poll (5 s) until it succeeds.
                     self.new_job(clean=True)
+                    self.last_tip = tip
                 elif job is not None and time.time() - job.created > self.refresh_secs:
                     self.new_job(clean=True)
                 elif job is None:
-                    self.last_tip = tip
                     self.new_job(clean=True)
+                    self.last_tip = tip
             except Exception as e:
                 log("watch_loop error: %r" % e)
             time.sleep(5)
@@ -1421,8 +1875,8 @@ class StratumHandler(socketserver.StreamRequestHandler):
             send({"id": None, "method": "mining.set_difficulty",
                   "params": [d]})
 
-        self.server.job_manager.add_listener(
-            lambda job, clean: send_job(job, clean))
+        _job_listener = lambda job, clean: send_job(job, clean)  # noqa: E731
+        self.server.job_manager.add_listener(_job_listener)
         job = self.server.job_manager.current()
         if job is None:
             job = self.server.job_manager.new_job(clean=True)
@@ -1485,6 +1939,9 @@ class StratumHandler(socketserver.StreamRequestHandler):
         except (ConnectionResetError, BrokenPipeError):
             pass
         finally:
+            # C4 fix (C1-D5): drop this connection's job listener too,
+            # not just the handler registration.
+            self.server.job_manager.remove_listener(_job_listener)
             self.server.unregister(self)
 
     def finish(self):
@@ -1500,7 +1957,7 @@ class StratumServer(socketserver.ThreadingTCPServer):
 
     def __init__(self, addr, handler, job_manager, backend, share_diff, vardiff,
                  spool=None, submit_retries=3, submit_backoff_secs=2.0,
-                 alarm_cmd=""):
+                 alarm_cmd="", fallback_backend=None):
         self.job_manager = job_manager
         self.backend = backend
         self.share_diff = share_diff
@@ -1509,6 +1966,9 @@ class StratumServer(socketserver.ThreadingTCPServer):
         self.submit_retries = submit_retries
         self.submit_backoff_secs = submit_backoff_secs
         self.alarm_cmd = alarm_cmd
+        # Freeze v2.3 (R3): optional secondary submit daemon (None =
+        # pre-v2.3 single-daemon behaviour).
+        self.fallback_backend = fallback_backend
         self.handlers = set()
         self.handlers_lock = threading.Lock()
         self.stats_lock = threading.Lock()
@@ -1611,10 +2071,26 @@ class StratumServer(socketserver.ThreadingTCPServer):
                     self.backend, job, coinbase, header,
                     spool=self.spool, submit_retries=self.submit_retries,
                     backoff_secs=self.submit_backoff_secs,
-                    probe_fn=_probe_tip, alarm_cmd=self.alarm_cmd)
+                    probe_fn=_probe_tip, alarm_cmd=self.alarm_cmd,
+                    fallback_backend=self.fallback_backend)
             except Exception as e:
                 # Assembly/tripwire failure: nothing was submitted.
                 log("submit failed: %r" % e)
+                # C4 fix (C2-D2): a block-winning share whose ASSEMBLY
+                # fails was previously lost with only this one log line
+                # -- never spooled (spooling happens inside
+                # submit_spooled_block, after assembly) and never
+                # alarmed. Fire the full submission alarm so the
+                # failure is unmissable on every channel (log, stderr,
+                # ALARM.txt, ALARM_CMD). The block itself cannot be
+                # spooled here: assembly is what produces the blockhex.
+                try:
+                    fire_submission_alarm(
+                        job.height, "assembly failed: %r" % e,
+                        spool_dir=(self.spool.dir if self.spool else ""),
+                        alarm_cmd=self.alarm_cmd)
+                except Exception as alarm_exc:
+                    log("assembly-failure alarm failed: %r" % alarm_exc)
                 return False, False, "submit failed: %s" % e
             if accepted:
                 # New job immediately so nobody mines stale work. Wrapped:
@@ -1655,7 +2131,8 @@ def _parse_main_args(argv):
                  "--submit-retries": "SUBMIT_RETRIES",
                  "--submit-backoff-secs": "SUBMIT_BACKOFF_SECS",
                  "--alarm-cmd": "ALARM_CMD",
-                 "--spool-replay-secs": "SPOOL_REPLAY_SECS"}
+                 "--spool-replay-secs": "SPOOL_REPLAY_SECS",
+                 "--submit-fallback-rpc-url": "SUBMIT_FALLBACK_RPC_URL"}
     i = 0
     while i < len(argv):
         arg = argv[i]
@@ -1701,6 +2178,20 @@ def main():
 
     backend = SyscoinRPCBackend(cfg["NODE_RPC_URL"], cfg["NODE_COOKIE"],
                                 cfg["NODE_RPC_USER"], cfg["NODE_RPC_PASS"])
+    # Freeze v2.3 (R3): optional secondary submit daemon. Empty URL
+    # (the default) leaves fallback_backend=None and the submission
+    # path is exactly the pre-v2.3 single-daemon path.
+    fallback_backend = None
+    if cfg.get("SUBMIT_FALLBACK_RPC_URL"):
+        fb_user = cfg.get("SUBMIT_FALLBACK_RPC_USER") or cfg["NODE_RPC_USER"]
+        fb_pass = cfg.get("SUBMIT_FALLBACK_RPC_PASS") or cfg["NODE_RPC_PASS"]
+        fb_cookie = "" if fb_user else cfg["NODE_COOKIE"]
+        fallback_backend = SyscoinRPCBackend(
+            cfg["SUBMIT_FALLBACK_RPC_URL"], fb_cookie, fb_user, fb_pass)
+        log("secondary submit endpoint configured (R3): %s -- found "
+            "blocks are submitted there too when the primary does not "
+            "reach confirmed acceptance (deterministic rejections "
+            "excepted)" % cfg["SUBMIT_FALLBACK_RPC_URL"])
     nevm = ZmqNevmProvider(cfg["NEVM_ZMQ"])
     payout_spk = addr_to_scriptpubkey(cfg["PAYOUT_ADDRESS"])
     log("payout address OK: %s" % cfg["PAYOUT_ADDRESS"])
@@ -1721,7 +2212,8 @@ def main():
                      # Cheap probe only -- replay/retry NEVER rebuilds
                      # miner jobs (attacker B3 churn).
                      "probe_fn": lambda: backend.get_height(),
-                     "alarm_cmd": cfg["ALARM_CMD"]}
+                     "alarm_cmd": cfg["ALARM_CMD"],
+                     "fallback_backend": fallback_backend}
     if spool is not None:
         # Replay anything a previous run found but never got accepted,
         # before opening the stratum port.
@@ -1739,7 +2231,8 @@ def main():
                            spool=spool,
                            submit_retries=cfg["SUBMIT_RETRIES"],
                            submit_backoff_secs=cfg["SUBMIT_BACKOFF_SECS"],
-                           alarm_cmd=cfg["ALARM_CMD"])
+                           alarm_cmd=cfg["ALARM_CMD"],
+                           fallback_backend=fallback_backend)
     threading.Thread(target=jm.watch_loop, daemon=True).start()
 
     if spool is not None and cfg["SPOOL_REPLAY_SECS"] > 0:
